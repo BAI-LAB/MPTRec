@@ -26,23 +26,23 @@ def train_single():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/test.gz')
+    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#train.gz')
+    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
 
     model = SharedBottom(
-        num_tasks=2,
+        num_tasks=3,
         feature_vocabulary=CensusIncome_Vocabulary_Size,
         embedding_size=4,
-        input_size=127,
+        input_size=123,
         shared_dnn_hidden_units=(256, 128),
         tower_dnn_hidden_units=(64, 32),
         reg_embedding=3e-4,
         reg_dnn=0
     )
-    device = torch.device("cuda:3")
+    device = torch.device("cuda:1")
     model.to(device)
 
     print('start warm up!!!')
@@ -50,17 +50,17 @@ def train_single():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Income', 'Marital'],
+        task_name=['Income', 'Marital', 'Education'],
         lr=1e-3,
         epochs=5,
     )
-    train_manager.train(2)
+    train_manager.train_multi_task(3)
     print('warm up end!!!')
     
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3)
-    loss_func = nn.BCELoss()
-    task_name = ['Income', 'Marital']
-    for task_id in range(2):
+    loss_func = nn.BCELoss()    
+    task_name = ['Income', 'Marital', 'Education']
+    for task_id in range(3):
         model.load_state_dict(train_manager.best_weight)
         cur_mask = make_mask(model)
         epochs = 5
@@ -99,8 +99,8 @@ def train_single():
             for epoch in range(0, epochs):
                 model.train()
                 tepoch = tqdm(train_loader, unit="batch")
-                for y_0, y_1, features in tepoch:
-                    y = [y_0, y_1]
+                for y_0, y_1, y_2, features in tepoch:
+                    y = [y_0, y_1, y_2]
                     for key in features.keys():
                         features[key] = features[key].to(device)
 
@@ -134,7 +134,7 @@ def train_single():
             if prune_rate > 0.4 and best_auc_score > best_prune:
                 best_prune = best_auc_score
                 print('prune_time:{}'.format(_ite))
-                torch.save(cur_mask, f'/home/hl/MultiTask/baseline/csrec/CensusIncome/two_task/mask_{seed}_{task_id}.pt')
+                torch.save(cur_mask, f'/home/hl/MultiTask/baseline/csrec/CensusIncome/three_task/mask_{seed}_{task_id}.pt')
 
 
 @torch.no_grad()
@@ -142,8 +142,8 @@ def evaluation(model, data_loader, task_id):
     model.eval()
     device = next(model.parameters()).device
     y_true, y_hat = [], []
-    for y_0, y_1, features in data_loader:
-        y = [y_0, y_1]
+    for y_0, y_1, y_2, features in data_loader:
+        y = [y_0, y_1, y_2]
         for key in features.keys():
             features[key] = features[key].to(device)
         pred = model(features)

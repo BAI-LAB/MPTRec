@@ -1,5 +1,4 @@
 import sys
-import copy
 import torch
 import warnings
 import numpy as np
@@ -8,13 +7,13 @@ from torch import nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('/data/hl/MultiTask/')
 
 from utils.train import TrainManager
 from utils.models import SharedBottom
-from utils.dataset import AliCCPDataset
+from utils.dataset import AliCppDataset
 from utils.functions import count_prune_rate
-from utils.config import AliCCP_Vocabulary_Size
+from utils.config import AliCpp_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -24,19 +23,19 @@ def train_single():
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
-    
+
     model = SharedBottom(
-        num_tasks=2,
-        feature_vocabulary=AliCCP_Vocabulary_Size,
+        num_tasks=3,
+        feature_vocabulary=AliCpp_Vocabulary_Size,
         embedding_size=5,
-        input_size=90,
+        input_size=80,
         shared_dnn_hidden_units=(128, 64),
         tower_dnn_hidden_units=(32, 32),
         reg_embedding=1e-6,
         reg_dnn=0,
         dropout=(0.1, 0.3)
     )
-    device = torch.device("cuda:7")
+    device = torch.device("cuda:1")
     model.to(device)
 
     print('start warm up!!!')
@@ -44,18 +43,17 @@ def train_single():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['CTR', 'CVR'],
+        task_name=['CTR', 'CVR', 'BSI'],
         lr=1e-4,
-        epochs=1,
-        patience=1
+        epochs=1
     )
-    train_manager.train(2)
+    train_manager.train_multi_task(3)
     print('warm up end!!!')    
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-4)
     loss_func = nn.BCELoss()
-    task_name = ['CTR', 'CVR']
-    for task_id in range(2):
+    task_name = ['CTR', 'CVR', 'BSI']
+    for task_id in range(3):
         model.load_state_dict(train_manager.best_weight)
         cur_mask = make_mask(model)
         epochs = 1
@@ -90,12 +88,11 @@ def train_single():
 
             best_auc_score = 0
             earlystop_count = 0
-            best_weight = None
             for epoch in range(0, epochs):
                 model.train()
                 tepoch = tqdm(train_loader, unit="batch")
-                for y_0, y_1, features in tepoch:
-                    y = [y_0, y_1]
+                for y_0, y_1, y_2, features in tepoch:
+                    y = [y_0, y_1, y_2]
                     for key in features.keys():
                         features[key] = features[key].to(device)
 
@@ -115,7 +112,6 @@ def train_single():
                 if auc_val > best_auc_score:
                     earlystop_count = 0
                     best_auc_score = auc_val
-                    best_weight = copy.deepcopy(model.state_dict())
                 else:
                     earlystop_count += 1
                     print('EarlyStopping count {}'.format(earlystop_count))
@@ -123,13 +119,9 @@ def train_single():
                         print('EarlyStopping at epoch {}'.format(epoch))
                         break
 
-            if best_weight:
-                model.load_state_dict(best_weight)
-
             if prune_rate > 0.4 and best_auc_score > best_prune:
                 best_prune = best_auc_score
-                print('prune_time:{}'.format(_ite))
-                torch.save(cur_mask, f'/home/hl/MultiTask/baseline/csrec/AliCCP/two_task/mask_{seed}_{task_id}.pt')
+                torch.save(cur_mask, f'/data/hl/MultiTask/baseline/csrec/AliCpp/three_task/mask_{seed}_{task_id}.pt')
 
 
 @torch.no_grad()
@@ -137,8 +129,8 @@ def evaluation(model, data_loader, task_id):
     model.eval()
     device = next(model.parameters()).device
     y_true, y_hat = [], []
-    for y_0, y_1, features in data_loader:
-        y = [y_0, y_1]
+    for y_0, y_1, y_2, features in data_loader:
+        y = [y_0, y_1, y_2]
         for key in features.keys():
             features[key] = features[key].to(device)
         pred = model(features)
@@ -160,8 +152,8 @@ def make_mask(model):
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', -1)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', -1)
+    train_dataset = AliCppDataset('/data/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
+    val_dataset = AliCppDataset('/data/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
 

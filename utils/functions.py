@@ -1,16 +1,24 @@
-import sys
 import numpy as np
-from torch.utils.data import DataLoader
+import pandas as pd
+from fvcore.nn import FlopCountAnalysis
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
-sys.path.append('/data/hl/MultiTask')
+def count_params(model):
+    trainable_params_num = 0
+    total_params_num = 0
+    for name, params in model.named_parameters():
+        print(name, params.size())
+        total_params_num += params.numel()
+        if params.requires_grad:
+            trainable_params_num += params.numel()
+    print("="*64)
+    print('Total params: {}'.format(total_params_num))
+    print('Trainable params: {}'.format(trainable_params_num))
+    print("-"*64)
 
-from utils.models import MMOE, PLE, SharedBottom, SingleTask, SparseSharing
-from utils.dataset import AliCCPDataset, ByteRecDataset, CensusIncomeDataset
-from utils.train import CSRecTrainManager, SparseSharingTrainManager, TrainManager
-from utils.config import AliCCP_Vocabulary_Size, ByteRec_Vocabulary_Size, CensusIncome_Vocabulary_Size
 
-
+# ANCHOR Print table of zeros and non-zeros count
 def print_nonzeros(model, print_flag=True):
     nonzero = total = 0
     for name, p in model.shared_bottom.named_parameters():
@@ -48,325 +56,132 @@ def count_prune_rate(cur_mask):
     return round(prune_rate, 4)
 
 
-def load_dataset(dataset='CensusIncome', seed=2023):
-    if dataset == 'CensusIncome':
-        train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
-        test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
-        val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
-        train_loader = DataLoader(train_dataset, batch_size=256)
-        val_loader = DataLoader(val_dataset, batch_size=256)
-        test_loader = DataLoader(test_dataset, batch_size=256)
-    
-    elif dataset == 'AliCCP':
-        train_dataset = AliCCPDataset('data/AliCpp/ctr_cvr.train', 2000000)
-        val_dataset = AliCCPDataset('data/AliCpp/ctr_cvr.dev', 200000)
-        test_dataset = AliCCPDataset('data/AliCpp/ctr_cvr.test', 2000000)
-        train_loader = DataLoader(train_dataset, batch_size=2000)
-        val_loader = DataLoader(val_dataset, batch_size=2000)
-        test_loader = DataLoader(test_dataset, batch_size=2000)
+def process0(data_path, write_path, test_size=None, random_state=None):  # 40个特征，2个标签，分别是income和marital
+    column_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'education', 'wage_per_hour', 'hs_college',
+                    'marital_stat', 'major_ind_code', 'major_occ_code', 'race', 'hisp_origin', 'sex', 'union_member',
+                    'unemp_reason', 'full_or_part_emp', 'capital_gains', 'capital_losses', 'stock_dividends',
+                    'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat', 'det_hh_summ',
+                    'instance_weight', 'mig_chg_msa', 'mig_chg_reg', 'mig_move_reg', 'mig_same', 'mig_prev_sunbelt',
+                    'num_emp', 'fam_under_18', 'country_father', 'country_mother', 'country_self', 'citizenship',
+                    'own_or_self', 'vet_question', 'vet_benefits', 'weeks_worked', 'year', 'income_50k']
 
-    elif dataset == 'ByteRec':
-        train_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/train.gz')
-        val_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/val.gz')
-        test_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/test.gz')
-        train_loader = DataLoader(train_dataset, batch_size=4000)
-        val_loader = DataLoader(val_dataset, batch_size=4000)
-        test_loader = DataLoader(test_dataset, batch_size=4000)
+    data = pd.read_csv(
+        data_path,
+        delimiter=',',
+        header=None,
+        index_col=None,
+        names=column_names
+    )
 
-    return train_loader, val_loader, test_loader
+    data['label_income'] = data['income_50k'].map({' - 50000.': 0, ' 50000+.': 1})
+    data['label_marital'] = data['marital_stat'].apply(lambda x: 1 if x == ' Never married' else 0)
+    data.drop(labels=['income_50k', 'marital_stat'], axis=1, inplace=True)
+    columns = data.columns.values.tolist()
+    sparse_features = ['class_worker', 'det_ind_code', 'det_occ_code','education', 'hs_college', 'major_ind_code',
+                       'major_occ_code', 'race', 'hisp_origin', 'sex', 'union_member', 'unemp_reason',
+                       'full_or_part_emp', 'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat',
+                       'det_hh_summ', 'mig_chg_msa', 'mig_chg_reg', 'mig_move_reg', 'mig_same', 'mig_prev_sunbelt',
+                       'fam_under_18', 'country_father', 'country_mother', 'country_self', 'citizenship',
+                       'vet_question']
+    dense_features = [col for col in columns if
+                      col not in sparse_features and col not in ['label_income', 'label_marital']]
 
+    data[sparse_features] = data[sparse_features].fillna('-1', )
+    data[dense_features] = data[dense_features].fillna(0, )
+    mms = MinMaxScaler(feature_range=(0, 1))
+    data[dense_features] = mms.fit_transform(data[dense_features])
+    for feat in sparse_features:
+        lbe = LabelEncoder()
+        data[feat] = lbe.fit_transform(data[feat])
 
-def load_model(model='SingleTask', dataset='CensusIncome'):
-    if model == 'SingleTask':
-        if dataset == 'CensusIncome':
-            model = SingleTask(
-                feature_vocabulary=CensusIncome_Vocabulary_Size,
-                embedding_size=4,
-                input_size=127,
-                shared_dnn_hidden_units=(256, 128),
-                tower_dnn_hidden_units=(64, 32),
-                reg_embedding=0,
-                reg_dnn=0,
-            )
-        
-        elif dataset == 'AliCCP':
-            model = SingleTask(
-                feature_vocabulary=AliCCP_Vocabulary_Size,
-                embedding_size=5,
-                input_size=90,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=0,
-                reg_dnn=0,
-                dropout=(0.1, 0.3)
-            )
-
-        elif dataset == 'ByteRec':
-            model = SingleTask(
-                feature_vocabulary=ByteRec_Vocabulary_Size,
-                embedding_size=4,
-                input_size=32,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=0,
-                reg_dnn=0,
-            )
-    
-    elif model == 'SharedBottom':
-        if dataset == 'CensusIncome':
-            model = SharedBottom(
-                num_tasks=2,
-                feature_vocabulary=CensusIncome_Vocabulary_Size,
-                embedding_size=4,
-                input_size=127,
-                shared_dnn_hidden_units=(256, 128),
-                tower_dnn_hidden_units=(64, 32),
-                reg_embedding=3e-4,
-                reg_dnn=3e-4
-            )
-        
-        elif dataset == 'AliCCP':
-            model = SharedBottom(
-                num_tasks=2,
-                feature_vocabulary=AliCCP_Vocabulary_Size,
-                embedding_size=5,
-                input_size=90,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6,
-                dropout=(0.1, 0.3)
-            )
-
-        elif dataset == 'ByteRec':
-            model = SharedBottom(
-                num_tasks=2,
-                feature_vocabulary=ByteRec_Vocabulary_Size,
-                embedding_size=4,
-                input_size=32,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6,
-            )
-
-    elif model == 'MMOE':
-        if dataset == 'CensusIncome':
-            model = MMOE(
-                num_tasks=2,
-                num_experts=3,
-                feature_vocabulary=CensusIncome_Vocabulary_Size,
-                embedding_size=4,
-                input_size=127,
-                expert_dnn_hidden_units=(256, 128),
-                tower_dnn_hidden_units=(64, 32),
-                reg_embedding=3e-4,
-                reg_dnn=3e-4
-            )
-
-        elif dataset == 'AliCCP':
-            model = MMOE(
-                num_tasks=2,
-                num_experts=3,
-                feature_vocabulary=AliCCP_Vocabulary_Size,
-                embedding_size=5,
-                input_size=90,
-                expert_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6,
-                dropout=(0.1, 0.3),
-            )
-        
-        elif dataset == 'ByteRec':
-            model = MMOE(
-                num_tasks=2,
-                num_experts=3,
-                feature_vocabulary=ByteRec_Vocabulary_Size,
-                embedding_size=4,
-                input_size=32,
-                expert_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6,
-            )
-
-    elif model == 'PLE':
-        if dataset == 'CensusIncome':
-            model = PLE(
-                num_tasks=2,
-                input_size=127,
-                feature_vocabulary=CensusIncome_Vocabulary_Size,
-                embedding_size=4,
-                shared_expert_num=1,
-                specific_expert_num=1,
-                num_levels=2,
-                expert_dnn_hidden_units=(256, ),
-                tower_dnn_hidden_units=(64, 32),
-                reg_embedding=3e-4,
-                reg_dnn=3e-4
-            )
-     
-        elif dataset == 'AliCCP':
-            model = PLE(
-                num_tasks=2,
-                input_size=90,
-                feature_vocabulary=AliCCP_Vocabulary_Size,
-                embedding_size=5,
-                shared_expert_num=1,
-                specific_expert_num=1,
-                num_levels=2,
-                expert_dnn_hidden_units=(128,),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6,
-                dropout=(0.1, 0.3),
-            )
-
-        elif dataset == 'ByteRec':
-            model = PLE(
-                num_tasks=2,
-                feature_vocabulary=ByteRec_Vocabulary_Size,
-                embedding_size=4,
-                input_size=32,
-                shared_expert_num=1,
-                specific_expert_num=1,
-                num_levels=2,
-                expert_dnn_hidden_units=(128,),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6,
-                reg_dnn=1e-6
-            )
-
-    elif model in ['SparseSharing', 'CSRec']:
-        if dataset == 'CensusIncome':
-            model = SparseSharing(
-                num_tasks=2,
-                feature_vocabulary=CensusIncome_Vocabulary_Size,
-                embedding_size=4,
-                input_size=127,
-                shared_dnn_hidden_units=(256, 128),
-                tower_dnn_hidden_units=(64, 32),
-                reg_embedding=3e-4
-            )
-        
-        elif dataset == 'AliCCP':
-            model = SparseSharing(
-                num_tasks=2,
-                feature_vocabulary=AliCCP_Vocabulary_Size,
-                embedding_size=5,
-                input_size=90,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6
-            ) 
-        
-        elif dataset == 'ByteRec':
-            model = SparseSharing(
-                num_tasks=2,
-                feature_vocabulary=ByteRec_Vocabulary_Size,
-                embedding_size=4,
-                input_size=32,
-                shared_dnn_hidden_units=(128, 64),
-                tower_dnn_hidden_units=(32, 32),
-                reg_embedding=1e-6
-            )
-
-    return model
+    if test_size:
+        val_data, test_data = train_test_split(data, test_size=test_size, random_state=random_state)
+        val_data.to_csv(write_path+'val/{}.gz'.format(random_state), index=False, compression='gzip')
+        test_data.to_csv(write_path+'test/{}.gz'.format(random_state), index=False, compression='gzip')
+    else:
+        data.to_csv(write_path+'test.gz', index=False, compression='gzip')
 
 
-def load_train_manager(model, dataset, config):
-    if model in ['SingleTask', 'SharedBottom', 'MMOE', 'PLE']:
-        if dataset == 'CensusIncome':
-            train_manager = TrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                task_name=['Income', 'Marital'],
-                lr=1e-3
-            )
-        
-        elif dataset == 'AliCCP':
-            train_manager = TrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                task_name=['CTR', 'CVR'],
-                lr=1e-4
-            )
+def process1(data_path, write_path, test_size=None, random_state=None):  # 39个特征，3个标签，分别是income，marital和education
+    column_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'education', 'wage_per_hour', 'hs_college',
+                    'marital_stat', 'major_ind_code', 'major_occ_code', 'race', 'hisp_origin', 'sex', 'union_member',
+                    'unemp_reason', 'full_or_part_emp', 'capital_gains', 'capital_losses', 'stock_dividends',
+                    'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat', 'det_hh_summ',
+                    'instance_weight', 'mig_chg_msa', 'mig_chg_reg', 'mig_move_reg', 'mig_same', 'mig_prev_sunbelt',
+                    'num_emp', 'fam_under_18', 'country_father', 'country_mother', 'country_self', 'citizenship',
+                    'own_or_self', 'vet_question', 'vet_benefits', 'weeks_worked', 'year', 'income_50k']
 
-        elif dataset == 'ByteRec':
-            train_manager = TrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                task_name=['Finish', 'Like'],
-                epochs=10,
-                lr=1e-4
-            )
+    data = pd.read_csv(
+        data_path,
+        delimiter=',',
+        header=None,
+        index_col=None,
+        names=column_names
+    )
 
-    elif model == 'SparseSharing':
-        if dataset == 'CensusIncome':
-            train_manager = SparseSharingTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['Income', 'Marital'],
-                lr=1e-3
-            )
-        
-        elif dataset == 'AliCCP':
-            train_manager = SparseSharingTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['CTR', 'CVR'],
-                lr=1e-4
-            )
+    data['label_income'] = data['income_50k'].map({' - 50000.': 0, ' 50000+.': 1})
+    data['label_marital'] = data['marital_stat'].apply(lambda x: 1 if x == ' Never married' else 0)
+    data['label_education'] = data['education'].apply(lambda x: 1 if x == ' Bachelors degree(BA AB BS)' else 0)
+    data.drop(labels=['income_50k', 'marital_stat', 'education'], axis=1, inplace=True)
+    columns = data.columns.values.tolist()
+    sparse_features = ['class_worker', 'det_ind_code', 'det_occ_code', 'hs_college', 'major_ind_code',
+                       'major_occ_code', 'race', 'hisp_origin', 'sex', 'union_member', 'unemp_reason',
+                       'full_or_part_emp', 'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat',
+                       'det_hh_summ', 'mig_chg_msa', 'mig_chg_reg', 'mig_move_reg', 'mig_same', 'mig_prev_sunbelt',
+                       'fam_under_18', 'country_father', 'country_mother', 'country_self', 'citizenship',
+                       'vet_question']
+    dense_features = [col for col in columns if
+                      col not in sparse_features and col not in ['label_income', 'label_marital', 'label_education']]
 
-        elif dataset == 'ByteRec':
-            train_manager = SparseSharingTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['Finish', 'Like'],
-                epochs=10,
-                lr=1e-4
-            )         
+    data[sparse_features] = data[sparse_features].fillna('-1', )
+    data[dense_features] = data[dense_features].fillna(0, )
+    mms = MinMaxScaler(feature_range=(0, 1))
+    data[dense_features] = mms.fit_transform(data[dense_features])
+    for feat in sparse_features:
+        lbe = LabelEncoder()
+        data[feat] = lbe.fit_transform(data[feat])
 
-    elif model == 'CSRec':
-        if dataset == 'CensusIncome':
-            train_manager = CSRecTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['Income', 'Marital'],
-                lr=1e-3
-            )
-        
-        elif dataset == 'AliCCP':
-            train_manager = CSRecTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['CTR', 'CVR'],
-                lr=1e-4
-            )
+    if test_size:
+        val_data, test_data = train_test_split(data, test_size=test_size, random_state=random_state)
+        val_data.to_csv(write_path+'val/#{}.gz'.format(random_state), index=False, compression='gzip')
+        test_data.to_csv(write_path+'test/#{}.gz'.format(random_state), index=False, compression='gzip')
+    else:
+        data.to_csv(write_path, index=False, compression='gzip')
 
-        elif dataset == 'ByteRec':
-            train_manager = CSRecTrainManager(
-                model=config['model'],
-                train_loader=config['train_loader'],
-                val_loader=config['val_loader'],
-                mask_path='',
-                task_name=['Finish', 'Like'],
-                epochs=10,
-                lr=1e-4
-            )
 
-    return train_manager
+def compute_cost_0(model, train_loader):
+    device = next(model.parameters()).device
+    count_params(model)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print('FLOPs:', flops.total())
+        break
+
+
+def compute_cost_1(model, all_mask, train_loader):
+    device = next(model.parameters()).device
+    count_params(model)
+    for name in all_mask[0]:
+        a = (1 - all_mask[0][name]) * (1 - all_mask[1][name])
+        print('No training required:', a.sum())
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        flops = FlopCountAnalysis(model, features)
+        print('FLOPs:', flops.total() * 3)
+        break
+
+
+def compute_cost_2(mptrec, newtask, train_loader):
+    # Computing the time and space cost of the model
+    device = next(mptrec.parameters()).device
+    count_params(newtask)
+    for _, _, _, features in train_loader:
+        for key in features.keys():
+            features[key] = features[key].to(device)
+        dnn_input, invariant_rep, variant_reps, env_embeddings = mptrec.get_infos(features)
+        flops = FlopCountAnalysis(newtask, (dnn_input, invariant_rep, variant_reps, env_embeddings))
+        print('FLOPs:', flops.total())
+        break

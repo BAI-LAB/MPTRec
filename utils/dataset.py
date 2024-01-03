@@ -1,14 +1,14 @@
 import pandas as pd
 from torch.utils.data import Dataset
+ 
 
-
-class AliCCPDataset(Dataset):  # Two tasks, CTR prediction and CVR prediction.
-    def __init__(self, datafile, data_size):
+class AliCCPDataset(Dataset):  # Three tasks, namely CTR prediction, CVR prediction and BSI prediction
+    def __init__(self, datafile, data_size=-1):
         super(AliCCPDataset, self).__init__()
         self.feature_names = []
         self.datafile = datafile
-        self.data = []
         self.data_size = data_size
+        self.data = []
         self._load_data()
 
     def _load_data(self):
@@ -19,10 +19,16 @@ class AliCCPDataset(Dataset):  # Two tasks, CTR prediction and CVR prediction.
             for line in f:
                 line = line.strip().split(',')
                 line = [int(v) for v in line]
+                if line[-1] == 2:
+                    line[-1] = 0
+                else:
+                    line[-1] = 1
                 self.data.append(line)
                 count += 1
-                if self.data_size > 0 and count >= self.data_size:
-                    break
+                if self.data_size > -1:
+                    if count >= self.data_size:
+                        break
+        self.feature_names = self.feature_names[1:-1]
         print("load data {} from {} finished".format(count, self.datafile))
 
     def __len__(self, ):
@@ -32,13 +38,14 @@ class AliCCPDataset(Dataset):  # Two tasks, CTR prediction and CVR prediction.
         line = self.data[idx]
         click = line[0]
         conversion = line[1]
-        features = dict(zip(self.feature_names, line[2:]))
-        return click, conversion, features
+        business_scenario_information = line[-1]
+        features = dict(zip(self.feature_names, line[3:-1]))
+        return click, conversion, business_scenario_information, features
 
 
-class CensusIncomeDataset(Dataset):  # Two tasks: predicting whether income exceeds $50,000 and marital status.
+class CensusIncomeDataset(Dataset):
     def __init__(self, datafile):
-        self.feature_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'education', 'wage_per_hour', 
+        self.feature_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'wage_per_hour', 
                               'hs_college', 'major_ind_code', 'major_occ_code', 'race', 'hisp_origin', 'sex', 
                               'union_member', 'unemp_reason', 'full_or_part_emp', 'capital_gains', 'capital_losses', 
                               'stock_dividends', 'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat', 
@@ -46,12 +53,15 @@ class CensusIncomeDataset(Dataset):  # Two tasks: predicting whether income exce
                               'mig_prev_sunbelt', 'num_emp', 'fam_under_18', 'country_father', 'country_mother', 
                               'country_self', 'citizenship', 'own_or_self', 'vet_question', 'vet_benefits', 'weeks_worked', 
                               'year']
+
         self.datafile = datafile
         df = pd.read_csv(
             self.datafile,
             delimiter=',',
             index_col=None,
         )
+        # self.feature_names.remove('education')
+        # df['label_education'] = df.pop('education')
         self.data = df.values
 
     def __len__(self):
@@ -59,20 +69,19 @@ class CensusIncomeDataset(Dataset):  # Two tasks: predicting whether income exce
 
     def __getitem__(self, idx):
         line = self.data[idx]
-        income = line[40]
-        marital = line[41]
-        features = dict(zip(self.feature_names, line[:40]))
-        return income, marital, features
-    
-    def get_label(self, idx):
-        return self.data[:, 40 + idx]
+        income = line[-3]
+        marital = line[-2]
+        education = line[-1]
+        features = dict(zip(self.feature_names, line[:-3]))
+        return income, marital, education, features
 
 
-class ByteRecDataset(Dataset):  # Two tasks: predicting finish and like.
+class ByteRecDataset(Dataset):  # Three tasks: predicting finish, like, and duration time
     def __init__(self, datafile):
         self.feature_names = ["uid", "user_city", "item_id", "author_id", "item_city", "channel", "music_id", "device"]
         self.datafile = datafile
         df = pd.read_csv(self.datafile, delimiter=',', index_col=None)
+        df['duration_time'] = df['duration_time'].apply(lambda x: 1 if x > 0.000143 else 0)  # Videos longer than 10 seconds are labeled as 1
         self.data = df.values
 
     def __len__(self):
@@ -82,5 +91,6 @@ class ByteRecDataset(Dataset):  # Two tasks: predicting finish and like.
         line = self.data[idx]
         finish = line[6]
         like = line[7]
-        features = dict(zip(self.feature_names, list(line[:6]) + list(line[8:-2])))
-        return finish, like, features
+        duration_time = line[-1]
+        features = dict(zip(self.feature_names, list(line[:6]) + list(line[8:-1])))
+        return finish, like, duration_time, features

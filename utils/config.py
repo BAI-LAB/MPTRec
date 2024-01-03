@@ -1,87 +1,8 @@
-import time
-
-CensusIncome = {
-    'seed': 2023,
-    'dense_features_num': 11,
-    'sparse_features_num': 29,
-    'embedding_size': 4,
-    'input_size': 127,
-    'lr': 1e-3,
-    'epochs': 30,
-    'batch_size': 256,
-    'patience': 5,
-}
-
-AliCpp = {
-    'seed': 2023,
-    'dense_features_num': 0,
-    'sparse_features_num': 18,
-    'embedding_size': 5,
-    'input_size': 90,
-    'lr': 1e-4,
-    'epochs': 5,
-    'batch_size': 2000,
-    'patience': 5,
-}
-
-SingleTask = {
-    'expert_dnn_hidden_units': (256, 128),
-    'tower_dnn_hidden_units': (64, 32),
-    'reg_embedding': 3e-4,
-    'reg_dnn': 3e-4,
-    'patience': 5,
-    'model_save_path': '/home/hl/PYCHARM/MultiTask/weight/singletask.pt',
-}
-
-SharedBottom = {
-    'num_tasks': 2,
-    'expert_dnn_hidden_units': (256, 128),
-    'tower_dnn_hidden_units': (64, 32),
-    'reg_embedding': 3e-4,
-    'reg_dnn': 3e-4,
-    'model_save_path': '/home/hl/PYCHARM/MultiTask/weight/sharedbottom.pt',
-}
-
-MMOE = {
-    'num_tasks': 2,
-    'num_experts': 3,
-    'expert_dnn_hidden_units': (256, 128),
-    'tower_dnn_hidden_units': (64, 32),
-    'reg_embedding': 3e-4,
-    'reg_dnn': 3e-4,
-    'model_save_path': '/home/hl/PYCHARM/MultiTask/weight/mmoe.pt',
-}
-
-PLE = {
-    'num_tasks': 2,
-    'shared_expert_num': 1,
-    'specific_expert_num': 1,
-    'num_levels': 2,
-    'expert_dnn_hidden_units': (256,),
-    'tower_dnn_hidden_units': (64,),
-    'reg_embedding': 3e-4,
-    'reg_dnn': 3e-4,
-    'model_save_path': '/home/hl/PYCHARM/MultiTask/weight/ple.pt',
-}
-
-InvChar = {
-    'num_tasks': 2,
-    'expert_dnn_hidden_units': (256, 128),
-    'tower_dnn_hidden_units': (64, 32),
-    'fused_coe': 1,
-    'invariant_coe': 3e-4,
-    'env_coe': 1e-3,
-    'reg_embedding': 1e-3,
-    'reg_dnn': 3e-5,
-    'reg_classifier': 0,
-    'model_save_path': '/home/hl/PYCHARM/MultiTask/invchar.pt',
-}
-
 CensusIncome_Vocabulary_Size = {
     'class_worker': 9,
     'det_ind_code': 52,
     'det_occ_code': 47,
-    'education': 17,
+    # 'education': 17,
     'hs_college': 3,
     'major_ind_code': 24,
     'major_occ_code': 15,
@@ -110,7 +31,7 @@ CensusIncome_Vocabulary_Size = {
 }
 
 AliCCP_Vocabulary_Size = {
-    '101': 238635,
+    # '101': 238635,
     '121': 98,
     '122': 14,
     '124': 3,
@@ -127,7 +48,7 @@ AliCCP_Vocabulary_Size = {
     '509': 104830,
     '702': 51878,
     '853': 37148,
-    '301': 4
+    # '301': 4
 }
 
 ByteRec_Vocabulary_Size = {

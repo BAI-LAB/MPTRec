@@ -31,34 +31,31 @@ def main():
     model = SingleTask(
         feature_vocabulary=CensusIncome_Vocabulary_Size,
         embedding_size=4,
-        input_size=127,
+        input_size=123,
         shared_dnn_hidden_units=(256, 128),
         tower_dnn_hidden_units=(64, 32),
         reg_embedding=0,
         reg_dnn=0,
     )
-    device = torch.device("cuda:3")
+    device = torch.device("cuda:2")j
     model.to(device)
-
-    from utils.functions import compute_cost_0
-    compute_cost_0(model, train_loader)
 
     train_manager = TrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Income', 'Marital'],
-        lr=1e-3
+        task_name=['Income', 'Marital', 'Sex'],
+        lr=1e-3,
     )
-    train_manager.train(1, task_id)
+    train_manager.train_one_task(task_id)
 
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 1, task_id)
-    task_name = ['Income', 'Marital']
-    print('AUC-Test-{}:{:.4f}'.format(task_name[task_id], auc_test[0]))
+    auc_test = train_manager.evaluation_one_task(test_loader, task_id)
+    task_name = ['Income', 'Marital', 'Sex']
+    print('AUC-Test-{}:{:.4f}'.format(task_name[task_id], auc_test))
 
 
 if __name__ == '__main__':
-    for task_id in range(0, 2):
-        for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
-            main()
+    task_id = 1
+    for seed in [1685480945, 1685463909, 1685477428]:
+        main()
