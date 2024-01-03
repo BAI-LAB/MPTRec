@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.models import SparseSharing
-from utils.dataset import ByteRecDataset
-from utils.train import CsRecTrainManager
-from utils.config import ByteRec_Vocabulary_Size
+from multitaskrec.model import SparseSharing
+from multitaskrec.dataset import ByteRecDataset
+from multitaskrec.train import CsRecTrainManager
+from config import ByteRec_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

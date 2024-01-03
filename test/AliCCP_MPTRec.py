@@ -8,10 +8,10 @@ from torch.utils.data import DataLoader
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import MPTRec
-from utils.dataset import AliCppDataset
-from utils.train import MPTRecTrainManager
-from utils.config import AliCpp_Vocabulary_Size
+from multitaskrec.model import MPTRec
+from multitaskrec.dataset import AliCppDataset
+from multitaskrec.train import MPTRecTrainManager
+from config import AliCpp_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

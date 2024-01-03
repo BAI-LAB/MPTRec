@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import SparseSharing
-from utils.dataset import AliCppDataset
-from utils.config import AliCpp_Vocabulary_Size
-from utils.train import SparseSharingTrainManager
+from multitaskrec.model import SparseSharing
+from multitaskrec.dataset import AliCppDataset
+from config import AliCpp_Vocabulary_Size
+from multitaskrec.train import SparseSharingTrainManager
 
 warnings.filterwarnings('ignore')
 

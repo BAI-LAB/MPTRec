@@ -7,10 +7,10 @@ from sklearn.model_selection import train_test_split
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.train import TrainManager
+from multitaskrec.model import SharedBottom
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

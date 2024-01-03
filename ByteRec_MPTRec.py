@@ -2,10 +2,10 @@ import torch
 import warnings
 import numpy as np
 from torch.utils.data import DataLoader
-from utils.models import MPTRec
-from utils.dataset import ByteRecDataset
-from utils.train import MPTRecTrainManager
-from utils.config import ByteRec_Vocabulary_Size
+from multitaskrec.model import MPTRec
+from multitaskrec.dataset import ByteRecDataset
+from multitaskrec.train import MPTRecTrainManager
+from config import ByteRec_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

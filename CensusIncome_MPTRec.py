@@ -3,10 +3,10 @@ import warnings
 import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
-from utils.models import MPTRec
-from utils.train import MPTRecTrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.model import MPTRec
+from multitaskrec.train import MPTRecTrainManager
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

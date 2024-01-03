@@ -7,10 +7,10 @@ from sklearn.model_selection import train_test_split
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import SingleTask
-from utils.train import TrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.model import SingleTask
+from multitaskrec.train import TrainManager
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -40,7 +40,7 @@ def main():
     device = torch.device("cuda:3")
     model.to(device)
 
-    from utils.functions import compute_cost_0
+    from multitaskrec.functions import compute_cost_0
     compute_cost_0(model, train_loader)
 
     train_manager = TrainManager(

@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.models import PLE
-from utils.train import TrainManager
-from utils.dataset import ByteRecDataset
-from utils.config import ByteRec_Vocabulary_Size
+from multitaskrec.model import PLE
+from multitaskrec.train import TrainManager
+from multitaskrec.dataset import ByteRecDataset
+from config import ByteRec_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

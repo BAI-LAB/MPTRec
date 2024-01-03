@@ -7,10 +7,10 @@ from sklearn.model_selection import train_test_split
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import SparseSharing
-from utils.train import CsRecTrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.model import SparseSharing
+from multitaskrec.train import CsRecTrainManager
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -46,7 +46,7 @@ def main():
             torch.load(f'/home/hl/MultiTask/baseline/csrec/CensusIncome/two_task/mask_{seed}_{i}.pt'))
    
     from fvcore.nn import FlopCountAnalysis
-    from utils.functions import count_params
+    from multitaskrec.functions import count_params
     count_params(model)
     for name in all_mask[0]:
         a = (1 - all_mask[0][name]) * (1 - all_mask[1][name])

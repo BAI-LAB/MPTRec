@@ -10,11 +10,11 @@ from sklearn.metrics import roc_auc_score
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
-from utils.dataset import AliCCPDataset
-from utils.functions import count_prune_rate
-from utils.config import AliCCP_Vocabulary_Size
+from multitaskrec.train import TrainManager
+from multitaskrec.model import SharedBottom
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.functions import count_prune_rate
+from config import AliCCP_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

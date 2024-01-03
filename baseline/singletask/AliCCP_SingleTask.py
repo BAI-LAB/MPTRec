@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import SingleTask
-from utils.train import TrainManager
-from utils.dataset import AliCCPDataset
-from utils.config import AliCCP_Vocabulary_Size
+from multitaskrec.model import SingleTask
+from multitaskrec.train import TrainManager
+from multitaskrec.dataset import AliCCPDataset
+from config import AliCCP_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

@@ -7,10 +7,10 @@ from sklearn.model_selection import train_test_split
 
 sys.path.append('/home/hl/MultiTask/')
 
-from utils.models import MMOE
-from utils.train import TrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.model import MMOE
+from multitaskrec.train import TrainManager
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 

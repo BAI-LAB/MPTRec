@@ -2,10 +2,10 @@ import torch
 import warnings
 import numpy as np
 from torch.utils.data import DataLoader
-from utils.models import MPTRec
-from utils.dataset import AliCCPDataset
-from utils.train import MPTRecTrainManager
-from utils.config import AliCCP_Vocabulary_Size
+from multitaskrec.model import MPTRec
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.train import MPTRecTrainManager
+from config import AliCCP_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -36,7 +36,7 @@ def main():
     )
     model.to(device)
 
-    from utils.functions import compute_cost_0
+    from multitaskrec.functions import compute_cost_0
     compute_cost_0(model, train_loader)
 
     train_manager = MPTRecTrainManager(
