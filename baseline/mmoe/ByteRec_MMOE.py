@@ -21,13 +21,13 @@ def main():
     np.random.seed(seed)
 
     model = MMOE(
-        num_tasks=2,
-        num_experts=3,
+        task_num=2,
+        expert_num=3,
         feature_vocabulary=ByteRec_Vocabulary_Size,
         embedding_size=4,
         input_size=32,
-        expert_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
+        expert_dnn_hidden_unit=(128, 64),
+        tower_dnn_hidden_unit=(32, 32),
         reg_embedding=1e-6,
         reg_dnn=1e-6,
     )
