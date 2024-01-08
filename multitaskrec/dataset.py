@@ -45,7 +45,7 @@ class AliCCPDataset(Dataset):  # Three tasks, namely CTR prediction, CVR predict
 
 class CensusIncomeDataset(Dataset):
     def __init__(self, datafile):
-        self.feature_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'wage_per_hour', 
+        self.feature_names = ['age', 'class_worker', 'det_ind_code', 'det_occ_code', 'education', 'wage_per_hour', 
                               'hs_college', 'major_ind_code', 'major_occ_code', 'race', 'hisp_origin', 'sex', 
                               'union_member', 'unemp_reason', 'full_or_part_emp', 'capital_gains', 'capital_losses', 
                               'stock_dividends', 'tax_filer_stat', 'region_prev_res', 'state_prev_res', 'det_hh_fam_stat', 
@@ -54,14 +54,12 @@ class CensusIncomeDataset(Dataset):
                               'country_self', 'citizenship', 'own_or_self', 'vet_question', 'vet_benefits', 'weeks_worked', 
                               'year']
 
-        self.datafile = datafile
         df = pd.read_csv(
-            self.datafile,
+            datafile,
             delimiter=',',
-            index_col=None,
         )
-        # self.feature_names.remove('education')
-        # df['label_education'] = df.pop('education')
+        self.feature_names.remove('education')
+        df['label_education'] = df.pop('education')
         self.data = df.values
 
     def __len__(self):

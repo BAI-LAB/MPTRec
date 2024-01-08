@@ -2,7 +2,7 @@ CensusIncome_Vocabulary_Size = {
     'class_worker': 9,
     'det_ind_code': 52,
     'det_occ_code': 47,
-    # 'education': 17,
+    'education': 17,
     'hs_college': 3,
     'major_ind_code': 24,
     'major_occ_code': 15,
@@ -31,7 +31,7 @@ CensusIncome_Vocabulary_Size = {
 }
 
 AliCCP_Vocabulary_Size = {
-    # '101': 238635,
+    '101': 238635,
     '121': 98,
     '122': 14,
     '124': 3,
@@ -48,16 +48,5 @@ AliCCP_Vocabulary_Size = {
     '509': 104830,
     '702': 51878,
     '853': 37148,
-    # '301': 4
-}
-
-ByteRec_Vocabulary_Size = {
-    'uid': 70711, 
-    'user_city': 396, 
-    'item_id': 3687157, 
-    'author_id': 778113, 
-    'item_city': 456, 
-    'channel': 5, 
-    'music_id': 82840, 
-    'device': 71681
+    '301': 4
 }
