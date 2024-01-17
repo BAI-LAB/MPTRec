@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 from torch.utils.data import DataLoader
 
-sys.path.append('/data/hl/MultiTask/')
 
 from multitaskrec.train import TrainManager
 from multitaskrec.model import SharedBottom
@@ -25,12 +24,12 @@ def main():
         feature_vocabulary=ByteRec_Vocabulary_Size,
         embedding_size=4,
         input_size=32,
-        shared_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
+        shared_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
         reg_embedding=1e-6,
         reg_dnn=1e-6,
     )
-    device = torch.device("cuda:4")
+    device = torch.device("cuda:1")
     model.to(device)
 
     train_manager = TrainManager(
@@ -39,19 +38,20 @@ def main():
         val_loader=val_loader,
         task_name=['Finish', 'Like'],
         epochs=10,
-        lr=1e-4
+        lr=1e-4,
+        patience=5,
     )
-    train_manager.train(2)
+    train_manager.train()
 
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 2)
+    auc_test = train_manager.evaluation(test_loader)
     print('AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}'.format(auc_test[0], auc_test[1]))
 
     
 if __name__ == '__main__':
-    train_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/train.gz')
-    val_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/val.gz')
-    test_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/test.gz')
+    train_dataset = ByteRecDataset('dataset/Byte-Rec/train.gz')
+    val_dataset = ByteRecDataset('dataset/Byte-Rec/val.gz')
+    test_dataset = ByteRecDataset('dataset/Byte-Rec/test.gz')
     train_loader = DataLoader(train_dataset, batch_size=4000)
     val_loader = DataLoader(val_dataset, batch_size=4000)
     test_loader = DataLoader(test_dataset, batch_size=4000)

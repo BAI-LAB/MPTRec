@@ -21,23 +21,23 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=2000)
     env_ids = torch.randint(0, 2, size=(len(train_dataset),))
 
-    device = torch.device("cuda:4")
+    device = torch.device("cuda:0")
     model = MPTRec(
         num_tasks=2,
         feature_vocabulary=AliCCP_Vocabulary_Size,
         embedding_size=5,
         input_size=90,
-        expert_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
-        dropout=(0.1, 0.3),
+        expert_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
+        dropout=[0.1, 0.3],
         reg_embedding=reg_embedding,
         reg_dnn=reg_dnn,
         device=device
     )
     model.to(device)
 
-    from multitaskrec.functions import compute_cost_0
-    compute_cost_0(model, train_loader)
+    # from multitaskrec.functions import compute_cost_0
+    # compute_cost_0(model, train_loader)
 
     train_manager = MPTRecTrainManager(
         model=model,
@@ -45,6 +45,7 @@ def main():
         val_loader=val_loader,
         env_ids=env_ids,
         task_name=['CTR', 'CVR'],
+        epochs=5,
         lr=1e-4,
         batch_size=2000,
         uni_coe=uni_coe,
@@ -58,15 +59,15 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
    
     uni_coe = 0.9
     env_coe = 0.1
     reg_embedding = 0.0001
     reg_dnn = 7e-6
-    for seed in [1688723512, 1688723740, 1688738016, 1688749593, 1688762746]:
+    for seed in [1688723512]:
         main()
     
     print('两个任务AliCPP')

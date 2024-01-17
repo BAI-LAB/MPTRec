@@ -57,13 +57,15 @@ class TrainManager:
         """
         pred = self.model(features)
 
-        all_loss = self.model.get_l2_reg()
+        batch_loss = self.model.get_l2_reg()
         for task_id in range(2):
-            all_loss += self.loss_func(pred[task_id].cpu(), y[task_id].float())
+            batch_loss += self.loss_func(pred[task_id].cpu(), y[task_id].float())
 
         self.optimizer.zero_grad()
-        all_loss.backward()
+        batch_loss.backward()
         self.optimizer.step()
+
+        return batch_loss
 
     def train(self):
         """Train for a specified number of epochs
@@ -78,18 +80,20 @@ class TrainManager:
         for epoch in range(1, self.epochs + 1):
             self.model.train()
             tepoch = tqdm(self.train_loader, unit="batch")
+            epoch_loss = 0
 
             for y_0, y_1, features in tepoch:
                 y = [y_0, y_1]
                 for key in features.keys():
                     features[key] = features[key].to(self.device)
-                self._train_a_batch(y, features)
+                epoch_loss += self._train_a_batch(y, features)
 
+            epoch_loss /= len(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            wandb.log({f"AUC-Val-{self.task_name[0]}": auc_val[0], f"AUC-Val-{self.task_name[1]}": auc_val[1]})
+            wandb.log({"Loss": epoch_loss, f"AUC-Val-{self.task_name[0]}": auc_val[0], f"AUC-Val-{self.task_name[1]}": auc_val[1]})
             print(
-                "Epoch:{}, AUC-Val-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
-                    epoch, self.task_name[0], auc_val[0], self.task_name[1], auc_val[1]
+                "Epoch:{}, Loss:{}, AUC-Val-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
+                    epoch, epoch_loss, self.task_name[0], auc_val[0], self.task_name[1], auc_val[1]
                 )
             )
 

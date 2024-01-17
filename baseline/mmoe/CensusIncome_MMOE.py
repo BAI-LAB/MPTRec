@@ -78,8 +78,8 @@ def main(seed, gpu):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--seed", type=int, default=100)
-    parser.add_argument("--gpu", type=int, default=7)
+    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
     main(args.seed, args.gpu)
