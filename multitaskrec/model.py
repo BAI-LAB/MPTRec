@@ -202,6 +202,152 @@ class MMOE(nn.Module):
                 param.requires_grad = False
 
 
+class STEM(nn.Module):
+    def __init__(
+        self,
+        task_num: int,
+        shared_expert_num: int,
+        specific_expert_num: int,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        input_size: int,
+        expert_dnn_hidden_unit: List[int],
+        tower_dnn_hidden_unit: List[int],
+        reg_embedding: Optional[float] = None,
+        reg_dnn: Optional[float] = None,
+        dropout: Optional[List[float]] = None,
+    ):
+        """STEM initialization.
+
+        Args:
+            task_num: number of tasks
+            expert_num: number of experts
+            feature_vocabulary: record the range of features
+            embedding_size: embedding size of features
+            input_size: input size of expert network
+            expert_dnn_hidden_unit: hidden units of expert network
+            tower_dnn_hidden_unit: hidden units of tower network
+            reg_embedding: regularization coefficient of embedding layer
+            reg_dnn: regularization coefficient of dnn layer
+            dropout: dropout rate of dnn layer
+
+        Returns: None
+        """
+        super(STEM, self).__init__()
+        self.task_num = task_num
+        self.shared_expert_num = shared_expert_num
+        self.specific_expert_num = specific_expert_num
+        self.reg_embedding = reg_embedding
+        self.reg_dnn = reg_dnn
+        self.shared_embedding_network = EmbeddingNetwork(
+            feature_vocabulary, embedding_size
+        )
+        self.shared_expert_network = MLP(
+            expert_dnn_hidden_unit, input_size, dropout=dropout
+        )
+        self.specific_embedding_networks = nn.ModuleList()
+        self.specific_expert_networks = nn.ModuleList()
+        self.tower_networks = nn.ModuleList()
+        self.gate_networks = nn.ModuleList()
+
+        for _ in range(task_num):
+            self.specific_embedding_networks.append(
+                EmbeddingNetwork(feature_vocabulary, embedding_size)
+            )
+            self.specific_expert_networks.append(
+                MLP(expert_dnn_hidden_unit, input_size, dropout=dropout)
+            )
+            self.tower_networks.append(
+                MLP(
+                    tower_dnn_hidden_unit + [1],
+                    expert_dnn_hidden_unit[-1],
+                    output_activation="sigmoid",
+                )
+            )
+            self.gate_networks.append(
+                nn.Sequential(
+                    nn.Linear(
+                        input_size,
+                        self.specific_expert_num * self.task_num + self.shared_expert_num,
+                        bias=False,
+                    ),
+                    nn.Softmax(dim=1),
+                )
+            )
+
+    def forward(self, x):
+        """Forward propagation of STEM.
+
+        Args:
+            x: input features
+
+        Returns: output of STEM
+        """
+        shared_feature_embedding = self.shared_embedding_network(x)
+        specific_feature_embeddings = []
+        for embedding in self.specific_embedding_networks:
+            specific_feature_embeddings.append(embedding(x))
+
+        shared_expert_out = self.shared_expert_network(shared_feature_embedding)
+        specific_expert_outs = []
+        for expert, feature_embedding in zip(
+            self.specific_expert_networks, specific_feature_embeddings
+        ):
+            specific_expert_outs.append(expert(feature_embedding))
+
+        gate_outs = []
+        for gate, feature_embedding in zip(
+            self.gate_networks, specific_feature_embeddings
+        ):
+            gate_outs.append(gate(feature_embedding + shared_feature_embedding))
+
+        weighted_expert_outs = []
+        for i, gate_out in enumerate(gate_outs):
+            specific_expert_outs = [StopGradient.apply(expert_out) if i != j else expert_out for j, expert_out in enumerate(specific_expert_outs)]
+            expert_concat = torch.stack(specific_expert_outs + [shared_expert_out], dim=2)
+            output = torch.matmul(expert_concat, gate_out.unsqueeze(dim=2)).squeeze()
+            weighted_expert_outs.append(output)
+
+        task_outs = []
+        for i, tower in enumerate(self.tower_networks):
+            output = tower(weighted_expert_outs[i])
+            task_outs.append(output.squeeze())
+        return task_outs
+
+    def get_l2_reg(self):
+        """Calculate the l2 regularization of STEM.
+
+        Args: None
+
+        Returns: l2 regularization of STEM
+        """
+        loss_embedding = self.shared_embedding_network.get_l2_reg()
+        for embedding in self.specific_embedding_networks:
+            loss_embedding += embedding.get_l2_reg()
+
+        loss_dnn = self.shared_expert_network.get_l2_reg()
+        for expert in self.specific_expert_networks:
+            loss_dnn += expert.get_l2_reg()
+        for tower in self.tower_networks:
+            loss_dnn += tower.get_l2_reg()
+            
+        return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
+
+    def get_reps(self):
+        shared_feature_embedding = self.shared_embedding_network(x)
+        specific_feature_embeddings = []
+        for embedding in self.specific_embedding_networks:
+            specific_feature_embeddings.append(embedding(x))
+
+        shared_expert_out = self.shared_expert_network(shared_feature_embedding)
+        specific_expert_outs = []
+        for expert, feature_embedding in zip(
+            self.specific_expert_networks, specific_feature_embeddings
+        ):
+            specific_expert_outs.append(expert(feature_embedding))
+        
+        return shared_expert_out, specific_expert_outs
+
 class CGC(nn.Module):
     def __init__(self, num_tasks, input_size, specific_expert_num, shared_expert_num, expert_dnn_hidden_units, dropout):
         super(CGC, self).__init__()
