@@ -452,7 +452,8 @@ class STEM(nn.Module):
             
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
-    def get_reps(self):
+    def get_reps(self, x):
+        
         shared_feature_embedding = self.shared_embedding_network(x)
         specific_feature_embeddings = []
         for embedding in self.specific_embedding_networks:
