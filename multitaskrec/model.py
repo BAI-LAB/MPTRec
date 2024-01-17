@@ -452,7 +452,22 @@ class STEM(nn.Module):
             
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
+    def get_reps(self):
+        shared_feature_embedding = self.shared_embedding_network(x)
+        specific_feature_embeddings = []
+        for embedding in self.specific_embedding_networks:
+            specific_feature_embeddings.append(embedding(x))
 
+        shared_expert_out = self.shared_expert_network(shared_feature_embedding)
+        specific_expert_outs = []
+        for expert, feature_embedding in zip(
+            self.specific_expert_networks, specific_feature_embeddings
+        ):
+            specific_expert_outs.append(expert(feature_embedding))
+        
+        return shared_expert_out, specific_expert_outs
+
+        
 class CGC(nn.Module):
     def __init__(
         self,
