@@ -63,11 +63,11 @@ if __name__ == '__main__':
     val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
     test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
    
-    uni_coe = 0.9
-    env_coe = 0.1
+    uni_coe = 0.
+    env_coe = 0.
     reg_embedding = 0.0001
     reg_dnn = 7e-6
-    for seed in [1688723512]:
+    for seed in [1688723512, 1688723740, 1688738016]:
         main()
     
     print('两个任务AliCPP')

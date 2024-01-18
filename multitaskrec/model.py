@@ -429,7 +429,7 @@ class STEM(nn.Module):
 
         task_outs = []
         for i, tower in enumerate(self.tower_networks):
-            output = tower(weighted_expert_outs[i])
+            output = tower(specific_expert_outs[i])
             task_outs.append(output.squeeze())
         return task_outs
 

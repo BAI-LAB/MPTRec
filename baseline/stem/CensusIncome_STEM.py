@@ -43,7 +43,7 @@ def main(seed, gpu):
         expert_dnn_hidden_unit=[256, 128],
         tower_dnn_hidden_unit=[64, 32],
         reg_embedding=0.006,
-        reg_dnn=3e-5,
+        reg_dnn=0,
     )
     device = torch.device(f"cuda:{gpu}")
     model.to(device)
@@ -54,7 +54,7 @@ def main(seed, gpu):
         val_loader=val_loader,
         task_name=["Income", "Marital"],
         lr=1e-3,
-        epochs=30,
+        epochs=5,
         patience=5,
     )
 
