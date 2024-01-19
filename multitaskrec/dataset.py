@@ -27,11 +27,14 @@ class AliCCPDataset(
             for line in f:
                 line = line.strip().split(",")
                 line = [int(v) for v in line]
+
+                # TODO 处理最后一个label
                 if line[-1] == 2:
                     line[-1] = 0
                 else:
                     line[-1] = 1
                 self.data.append(line)
+                
                 count += 1
                 if self.data_size > -1:
                     if count >= self.data_size:

@@ -1,9 +1,11 @@
 import copy
-import torch
+
 import numpy as np
+import torch
 import torch.nn as nn
-from tqdm import tqdm
+from fvcore.nn import FlopCountAnalysis
 from sklearn.metrics import roc_auc_score
+from tqdm import tqdm
 
 
 class TrainManager:
@@ -137,6 +139,28 @@ class TrainManager:
             auc_score.append(roc_auc_score(y.int(), pred.cpu()))
 
         return auc_score
+
+    def count_params(self):
+        trainable_params_num, total_params_num = 0, 0
+        for _, params in self.model.named_parameters():
+            total_params_num += params.numel()
+            if params.requires_grad:
+                trainable_params_num += params.numel()
+        print("=" * 64)
+        print("Total params: {}".format(total_params_num))
+        print("Trainable params: {}".format(trainable_params_num))
+        print("=" * 64)
+
+    def compute_cost(self):
+        device = next(self.model.parameters()).device
+        self.count_params()
+        for _, _, _, features in self.train_loader:
+            for key in features.keys():
+                features[key] = features[key].to(device)
+            flops = FlopCountAnalysis(self.model, features)
+            print("FLOPs:", flops.total())
+            print("=" * 64)
+            break
 
 
 class SparseSharingTrainManager(TrainManager):

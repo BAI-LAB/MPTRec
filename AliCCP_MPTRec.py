@@ -22,7 +22,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
-    env_ids = torch.load('/home/huangle/MultiTask/dataset/AliCCP/env_id.gz')[:len(train_dataset)]
+    env_ids = torch.randint(0, 2, (len(train_dataset),))
 
     device = torch.device(f"cuda:{gpu}")
     mptrec = MPTRec(
@@ -30,9 +30,9 @@ def main():
         feature_vocabulary=AliCCP_Vocabulary_Size,
         embedding_size=5,
         input_size=80,
-        expert_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
-        dropout=(0.1, 0.3),
+        expert_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
+        dropout=[0.1, 0.3],
         reg_embedding=reg_embedding,
         reg_dnn=reg_dnn,
         device=device
