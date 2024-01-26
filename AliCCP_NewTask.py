@@ -14,17 +14,15 @@ from multitaskrec.train import MPTRecTrainManager
 
 
 @torch.no_grad()
-def evaluation(newtask, invchar, data_loader):
+def evaluation(newtask, mptrec, data_loader):
     newtask.eval()
     device = next(newtask.parameters()).device
     y_true, y_hat = [], []
     for _, _, y, features in data_loader:
         for key in features.keys():
             features[key] = features[key].to(device)
-        dnn_input, invariant_rep, variant_reps, env_embeddings = invchar.get_infos(
-            features
-        )
-        pred = newtask(dnn_input, invariant_rep, variant_reps, env_embeddings)
+        output = mptrec.get_infos(features)
+        pred = newtask(**output)
         y_true.append(y)
         y_hat.append(pred)
     y_true = torch.cat(y_true)
@@ -108,10 +106,10 @@ def main(args):
         for _, _, y, features in train_loader:
             for key in features.keys():
                 features[key] = features[key].to(device)
-            dnn_input, invariant_rep, variant_reps, env_embeddings = mptrec.get_infos(
+            output = mptrec.get_infos(
                 features
             )
-            pred = newtask(dnn_input, invariant_rep, variant_reps, env_embeddings)
+            pred = newtask(**output)
             loss = loss_func(pred.cpu(), y.float()) + newtask.get_l2_reg()
 
             optimizer.zero_grad()

@@ -796,10 +796,10 @@ class MPTRec(nn.Module):
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
         self.device = device
-        self.embedding_networks = EmbeddingNetwork(feature_vocabulary, embedding_size)
-        self.base_network = MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
-        self.specific_networks = nn.ModuleList()
-        self.env_embeddings = nn.Embedding(num_tasks, expert_dnn_hidden_units[-1])
+        self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
+        self.shared_expert_network = MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
+        self.specific_expert_networks = nn.ModuleList()
+        self.env_embedding_network = nn.Embedding(num_tasks, expert_dnn_hidden_units[-1])
         self.gate_networks = nn.ModuleList()
         self.env_classifier = LinearLogSoftMaxEnvClassifier(
             expert_dnn_hidden_units[-1], num_tasks
@@ -807,7 +807,7 @@ class MPTRec(nn.Module):
         self.tower_networks = nn.ModuleList()
 
         for _ in range(num_tasks):
-            self.specific_networks.append(
+            self.specific_expert_networks.append(
                 MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
             )
             self.gate_networks.append(
@@ -822,13 +822,13 @@ class MPTRec(nn.Module):
             )
 
     def forward(self, x, alpha=1):
-        dnn_input = self.embedding_networks(x)
-        uni_rep = self.base_network(dnn_input)
+        dnn_input = self.embedding_network(x)
+        gen_rep = self.shared_expert_network(dnn_input)
 
-        uni_preds = []
+        gen_preds = []
         for i in range(self.num_tasks):
-            output = self.tower_networks[i](uni_rep)
-            uni_preds.append(output.squeeze())
+            output = self.tower_networks[i](gen_rep)
+            gen_preds.append(output.squeeze())
 
         gate_outs = []
         for gate in self.gate_networks:
@@ -836,20 +836,19 @@ class MPTRec(nn.Module):
 
         fused_preds = []
         for i in range(self.num_tasks):
-            prop_rep = self.specific_networks[i](dnn_input)
-            env_embedding = self.env_embeddings(torch.tensor(i).to(self.device))
-            env_aware_rep = prop_rep * env_embedding
-            all_reps = torch.stack([env_aware_rep, uni_rep], dim=2)
+            spec_rep = self.specific_expert_networks[i](dnn_input)
+            env_embedding = self.env_embedding_network(torch.tensor(i).to(self.device))
+            env_aware_rep = spec_rep * env_embedding
+            all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
             fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
-            # fused_rep = env_aware_rep + invariant_rep * 0.5
             output = self.tower_networks[i](fused_rep)
             fused_preds.append(output.squeeze())
 
-        rev_uni_rep = ReverseLayerF.apply(uni_rep, alpha)
-        env_pred = self.env_classifier(rev_uni_rep)
+        rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
+        env_pred = self.env_classifier(rev_gen_rep)
 
         return {
-            "uni_preds": uni_preds,
+            "gen_preds": gen_preds,
             "fused_preds": fused_preds,
             "env_pred": env_pred,
         }
@@ -859,28 +858,29 @@ class MPTRec(nn.Module):
         return output["fused_preds"]
 
     def cluster_predict(self, x):
+        # TODO: 尝试仅使用通用表征的预测结果做聚类预测
         return self.predict(x)
 
     def get_infos(self, x):
-        dnn_input = self.embedding_networks(x)
-        uni_rep = self.base_network(dnn_input)
+        dnn_input = self.embedding_network(x)
+        gen_rep = self.shared_expert_network(dnn_input)
 
-        prop_reps = []
+        spec_reps, env_embs = []
         for i in range(self.num_tasks):
-            prop_reps.append(self.specific_networks[i](dnn_input))
+            spec_reps.append(self.specific_expert_networks[i](dnn_input))
+            env_embs.append(self.env_embedding_network(torch.tensor(i).to(self.device)))
 
-        env_0 = self.env_embeddings(torch.tensor([0]).to(self.device))
-        env_1 = self.env_embeddings(torch.tensor([1]).to(self.device))
-        return dnn_input, uni_rep, prop_reps, [env_0, env_1]
-
-    def get_reps(self, x):
-        _, uni_rep, prop_reps, _ = self.get_infos(x)
-        return uni_rep, prop_reps
+        return {
+            "dnn_input": dnn_input,
+            "gen_rep": gen_rep,
+            "spec_reps": spec_reps,
+            "env_embs": env_embs,
+        }
 
     def get_l2_reg(self):
-        loss_embedding = self.embedding_networks.get_l2_reg()
-        loss_dnn = self.base_network.get_l2_reg()
-        for expert in self.specific_networks:
+        loss_embedding = self.embedding_network.get_l2_reg()
+        loss_dnn = self.shared_expert_network.get_l2_reg()
+        for expert in self.specific_expert_networks:
             loss_dnn += expert.get_l2_reg()
         for tower in self.tower_networks:
             loss_dnn += tower.get_l2_reg()
@@ -895,11 +895,11 @@ class NewTask(nn.Module):
         self.reg_dnn = reg_dnn
         self.device = device
         self.temperature = 150
-        self.env_embedding = nn.Embedding(1, rep_dim)
+        self.env_embedding_network = nn.Embedding(1, rep_dim)
         self.projection_network = nn.Sequential(
-            nn.Linear(input_size, int(rep_dim / 2), bias=False),
+            nn.Linear(input_size, rep_dim // 2, bias=False),
             nn.ReLU(),
-            nn.Linear(int(rep_dim / 2), rep_dim, bias=False),
+            nn.Linear(rep_dim // 2, rep_dim, bias=False),
             nn.LayerNorm(rep_dim),
         )
         self.gate_network = nn.Sequential(
@@ -914,30 +914,18 @@ class NewTask(nn.Module):
             output_activation="sigmoid",
         )
 
-    def forward(self, dnn_input, uni_rep=None, prop_reps=None, source_prompts=None):
-        env_embedding = self.env_embedding(torch.tensor(0).to(self.device))
-        source_prompts = torch.cat(source_prompts)
+    def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
+        exist_env_embs = torch.cat(env_embs)
+        new_env_emb = self.env_embedding_network(torch.tensor(0).to(self.device))
 
         H_out = self.projection_network(dnn_input)
-        W = torch.mm(H_out, source_prompts.T) / self.temperature
+        W = torch.mm(H_out, exist_env_embs.T) / self.temperature
         W = F.softmax(W, dim=-1).unsqueeze(2)
 
-        # Fixed proprietary representation fusion weights (FW)
-        # W = torch.tensor([0.5, 0.5]).to(self.device)
-
-        # Using the similarity between the target environment and the source environment
-        # to calculate the proprietary representation fusion weights (EES)
-        # W = torch.mm(all_prompts, env_embedding.T) / self.temperature
-        # W = F.softmax(W)
-
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)
-
-        # Fixed fusion weights for proprietary and generic representations
-        gate_out = torch.tensor([0.1, 0.9]).to(self.device)
-
-        prop_rep = torch.matmul(torch.stack(prop_reps, dim=2), W).squeeze()
-        env_aware_rep = prop_rep * env_embedding
-        all_reps = torch.stack([env_aware_rep, uni_rep], dim=2)
+        new_spec_rep = torch.matmul(torch.stack(spec_reps, dim=2), W).squeeze()
+        env_aware_rep = new_spec_rep * new_env_emb
+        all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
         fused_rep = torch.matmul(all_reps, gate_out).squeeze()
 
         output = self.tower_network(fused_rep)

@@ -22,10 +22,8 @@ def evaluation(newtask, invchar, data_loader):
     for _, _, y, features in data_loader:
         for key in features.keys():
             features[key] = features[key].to(device)
-        dnn_input, invariant_rep, variant_reps, env_embeddings = invchar.get_infos(
-            features
-        )
-        pred = newtask(dnn_input, invariant_rep, variant_reps, env_embeddings)
+        output = invchar.get_infos(features)
+        pred = newtask(**output)
         y_true.append(y)
         y_hat.append(pred)
     y_true = torch.cat(y_true)
