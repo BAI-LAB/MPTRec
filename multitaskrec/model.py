@@ -21,13 +21,9 @@ class MLP(nn.Module):
             input_size: input size of MLP
             output_activation: activation function of output layer
             dropout: dropout rate of MLP
-
-        Returns: None
         """
         layer_num = len(hidden_unit)
-        assert (
-            layer_num == len(dropout) if dropout else True
-        ), "dropout length must equal to hidden unit length"
+        assert (layer_num == len(dropout) if dropout else True), "dropout length must equal to hidden unit length"
 
         super(MLP, self).__init__()
         hidden_unit = [input_size] + hidden_unit
@@ -59,22 +55,9 @@ class MLP(nn.Module):
             self.mlp.add_module("dropout" + str(layer_num - 1), nn.Dropout(dropout[-1]))
 
     def forward(self, x):
-        """Forward propagation of MLP.
-
-        Args:
-            x: input features
-
-        Returns: output of MLP
-        """
         return self.mlp(x)
 
     def get_l2_reg(self):
-        """Calculate the l2 regularization of MLP.
-
-        Args: None
-
-        Returns: l2 regularization of MLP
-        """
         loss = 0
         for layer in self.mlp:
             if type(layer) is nn.Linear:
@@ -89,8 +72,6 @@ class EmbeddingNetwork(nn.Module):
         Args:
             feature_vocabulary: record the range of features
             embedding_size: embedding size of features
-
-        Returns: None
         """
         super(EmbeddingNetwork, self).__init__()
         self.feature_name = list(feature_vocabulary.keys())
@@ -100,13 +81,6 @@ class EmbeddingNetwork(nn.Module):
             self.embedding_dict[name] = emb
 
     def forward(self, x: Dict[str, torch.Tensor]):
-        """Forward propagation of embedding layer.
-
-        Args:
-            x: input features
-
-        Returns: Concatenated dense features and embedded sparse features
-        """
         feature_embedding = [
             x[name].unsqueeze(dim=1).float()
             for name in x.keys()
@@ -119,12 +93,6 @@ class EmbeddingNetwork(nn.Module):
         return feature_embedding
 
     def get_l2_reg(self):
-        """Calculate the l2 regularization of embedding layer.
-
-        Args: None
-
-        Returns: l2 regularization of embedding layer
-        """
         loss = 0
         for name in self.embedding_dict:
             loss += (self.embedding_dict[name].weight ** 2).sum() / 2.0
@@ -134,55 +102,82 @@ class EmbeddingNetwork(nn.Module):
 class SingleTask(nn.Module):
     def __init__(
         self,
-        feature_vocabulary,
-        embedding_size,
-        input_size,
-        shared_dnn_hidden_units,
-        tower_dnn_hidden_units,
-        reg_embedding,
-        reg_dnn,
-        dropout=None,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        input_size: int,
+        shared_dnn_hidden_units: List[int],
+        tower_dnn_hidden_units: List[int],
+        reg_embedding: float,
+        reg_dnn: float,
+        dropout: Optional[List[int]] = None,
     ):
+        """SingleTask initialization.
+
+        Args:
+            feature_vocabulary: record the range of features
+            embedding_size: embedding size of features
+            input_size: input size of dnn layer
+            shared_dnn_hidden_units: hidden units of dnn layer
+            tower_dnn_hidden_units: hidden units of tower layer
+            reg_embedding: regularization coefficient of embedding layer
+            reg_dnn: regularization coefficient of dnn layer
+            dropout: dropout rate of dnn layer
+        """
         super(SingleTask, self).__init__()
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
         self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
-        self.base_network = MLP(shared_dnn_hidden_units, input_size, dropout=dropout)
+        self.shared_network = MLP(shared_dnn_hidden_units, input_size, dropout=dropout)
         self.tower_network = MLP(
-            list(tower_dnn_hidden_units) + [1], shared_dnn_hidden_units[-1], "sigmoid"
+            list(tower_dnn_hidden_units) + [1],
+            shared_dnn_hidden_units[-1],
+            output_activation="sigmoid",
         )
 
     def forward(self, x):
         dnn_input = self.embedding_network(x)
-        mid_output = self.base_network(dnn_input)
+        mid_output = self.shared_network(dnn_input)
         final_output = self.tower_network(mid_output)
         return [final_output.squeeze()]
 
     def get_l2_reg(self):
         loss_embedding = self.embedding_network.get_l2_reg()
-        loss_dnn = self.base_network.get_l2_reg() + self.tower_network.get_l2_reg()
+        loss_dnn = self.shared_network.get_l2_reg() + self.tower_network.get_l2_reg()
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
 
 class SharedBottom(nn.Module):
     def __init__(
         self,
-        num_tasks,
-        feature_vocabulary,
-        embedding_size,
-        input_size,
-        shared_dnn_hidden_units,
-        tower_dnn_hidden_units,
-        reg_embedding,
-        reg_dnn,
-        dropout=None,
+        num_tasks: int,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        input_size: int,
+        shared_dnn_hidden_units: List[int],
+        tower_dnn_hidden_units: List[int],
+        reg_embedding: float,
+        reg_dnn: float,
+        dropout: Optional[List[int]] = None,
     ):
+        """SharedBottom initialization.
+
+        Args:
+            num_tasks: number of tasks
+            feature_vocabulary: record the range of features
+            embedding_size: embedding size of features
+            input_size: input size of dnn layer
+            shared_dnn_hidden_units: hidden units of dnn layer
+            tower_dnn_hidden_units: hidden units of tower layer
+            reg_embedding: regularization coefficient of embedding layer
+            reg_dnn: regularization coefficient of dnn layer
+            dropout: dropout rate of dnn layer
+        """
         super(SharedBottom, self).__init__()
         self.num_tasks = num_tasks
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
         self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
-        self.shared_bottom = MLP(shared_dnn_hidden_units, input_size, dropout=dropout)
+        self.shared_network = MLP(shared_dnn_hidden_units, input_size, dropout=dropout)
         self.tower_networks = nn.ModuleList()
         for _ in range(num_tasks):
             self.tower_networks.append(
@@ -195,7 +190,7 @@ class SharedBottom(nn.Module):
 
     def forward(self, x):
         dnn_input = self.embedding_network(x)
-        mid_output = self.shared_bottom(dnn_input)
+        mid_output = self.shared_network(dnn_input)
         final_output = []
         for tower in self.tower_networks:
             final_output.append(tower(mid_output).squeeze())
@@ -203,7 +198,7 @@ class SharedBottom(nn.Module):
 
     def get_l2_reg(self):
         loss_embedding = self.embedding_network.get_l2_reg()
-        loss_dnn = self.shared_bottom.get_l2_reg()
+        loss_dnn = self.shared_network.get_l2_reg()
         for tower in self.tower_networks:
             loss_dnn += tower.get_l2_reg()
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
@@ -219,8 +214,8 @@ class MMOE(nn.Module):
         input_size: int,
         expert_dnn_hidden_unit: List[int],
         tower_dnn_hidden_unit: List[int],
-        reg_embedding: Optional[float] = None,
-        reg_dnn: Optional[float] = None,
+        reg_embedding: float,
+        reg_dnn: float,
         dropout: Optional[float] = None,
     ):
         """MMOE initialization.
@@ -236,8 +231,6 @@ class MMOE(nn.Module):
             reg_embedding: regularization coefficient of embedding layer
             reg_dnn: regularization coefficient of dnn layer
             dropout: dropout rate of dnn layer
-
-        Returns: None
         """
         super(MMOE, self).__init__()
         self.task_num = task_num
@@ -268,13 +261,6 @@ class MMOE(nn.Module):
             )
 
     def forward(self, x):
-        """Forward propagation of MMOE.
-
-        Args:
-            x: input features
-
-        Returns: output of MMOE
-        """
         feature_embedding = self.embedding_network(x)
         expert_outs = []
         for expert in self.expert_network:
@@ -296,12 +282,6 @@ class MMOE(nn.Module):
         return task_outs
 
     def get_l2_reg(self):
-        """Calculate the l2 regularization of MMOE.
-
-        Args: None
-
-        Returns: l2 regularization of MMOE
-        """
         loss_embedding = self.embedding_network.get_l2_reg()
         loss_dnn = 0
         for expert in self.expert_network:
@@ -332,8 +312,8 @@ class STEM(nn.Module):
         input_size: int,
         expert_dnn_hidden_unit: List[int],
         tower_dnn_hidden_unit: List[int],
-        reg_embedding: Optional[float] = None,
-        reg_dnn: Optional[float] = None,
+        reg_embedding: float,
+        reg_dnn: float,
         dropout: Optional[List[float]] = None,
     ):
         """STEM initialization.
@@ -349,8 +329,6 @@ class STEM(nn.Module):
             reg_embedding: regularization coefficient of embedding layer
             reg_dnn: regularization coefficient of dnn layer
             dropout: dropout rate of dnn layer
-
-        Returns: None
         """
         super(STEM, self).__init__()
         self.task_num = task_num
@@ -358,12 +336,8 @@ class STEM(nn.Module):
         self.specific_expert_num = specific_expert_num
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
-        self.shared_embedding_network = EmbeddingNetwork(
-            feature_vocabulary, embedding_size
-        )
-        self.shared_expert_network = MLP(
-            expert_dnn_hidden_unit, input_size, dropout=dropout
-        )
+        self.shared_embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
+        self.shared_expert_network = MLP(expert_dnn_hidden_unit, input_size, dropout=dropout)
         self.specific_embedding_networks = nn.ModuleList()
         self.specific_expert_networks = nn.ModuleList()
         self.tower_networks = nn.ModuleList()
@@ -385,23 +359,12 @@ class STEM(nn.Module):
             )
             self.gate_networks.append(
                 nn.Sequential(
-                    nn.Linear(
-                        input_size,
-                        self.specific_expert_num * self.task_num + self.shared_expert_num,
-                        bias=False,
-                    ),
+                    nn.Linear(input_size, self.specific_expert_num * self.task_num + self.shared_expert_num, bias=False),
                     nn.Softmax(dim=1),
                 )
             )
 
     def forward(self, x):
-        """Forward propagation of STEM.
-
-        Args:
-            x: input features
-
-        Returns: output of STEM
-        """
         shared_feature_embedding = self.shared_embedding_network(x)
         specific_feature_embeddings = []
         for embedding in self.specific_embedding_networks:
@@ -422,8 +385,13 @@ class STEM(nn.Module):
 
         weighted_expert_outs = []
         for i, gate_out in enumerate(gate_outs):
-            specific_expert_outs = [StopGradient.apply(expert_out) if i != j else expert_out for j, expert_out in enumerate(specific_expert_outs)]
-            expert_concat = torch.stack(specific_expert_outs + [shared_expert_out], dim=2)
+            specific_expert_outs = [
+                StopGradient.apply(expert_out) if i != j else expert_out
+                for j, expert_out in enumerate(specific_expert_outs)
+            ]
+            expert_concat = torch.stack(
+                specific_expert_outs + [shared_expert_out], dim=2
+            )
             output = torch.matmul(expert_concat, gate_out.unsqueeze(dim=2)).squeeze()
             weighted_expert_outs.append(output)
 
@@ -434,12 +402,6 @@ class STEM(nn.Module):
         return task_outs
 
     def get_l2_reg(self):
-        """Calculate the l2 regularization of STEM.
-
-        Args: None
-
-        Returns: l2 regularization of STEM
-        """
         loss_embedding = self.shared_embedding_network.get_l2_reg()
         for embedding in self.specific_embedding_networks:
             loss_embedding += embedding.get_l2_reg()
@@ -449,11 +411,10 @@ class STEM(nn.Module):
             loss_dnn += expert.get_l2_reg()
         for tower in self.tower_networks:
             loss_dnn += tower.get_l2_reg()
-            
+
         return self.reg_embedding * loss_embedding + self.reg_dnn * loss_dnn
 
     def get_reps(self, x):
-        
         shared_feature_embedding = self.shared_embedding_network(x)
         specific_feature_embeddings = []
         for embedding in self.specific_embedding_networks:
@@ -465,20 +426,30 @@ class STEM(nn.Module):
             self.specific_expert_networks, specific_feature_embeddings
         ):
             specific_expert_outs.append(expert(feature_embedding))
-        
+
         return shared_expert_out, specific_expert_outs
 
-        
+
 class CGC(nn.Module):
     def __init__(
         self,
-        num_tasks,
-        input_size,
-        specific_expert_num,
-        shared_expert_num,
-        expert_dnn_hidden_units,
-        dropout,
+        num_tasks: int,
+        input_size: int,
+        specific_expert_num: int,
+        shared_expert_num: int,
+        expert_dnn_hidden_units: List[int],
+        dropout: Optional[List[float]] = None,
     ):
+        """CGC initialization.
+
+        Args:
+            num_tasks: number of tasks
+            input_size: input size of expert network
+            specific_expert_num: number of specific experts
+            shared_expert_num: number of shared experts
+            expert_dnn_hidden_units: hidden units of expert network
+            dropout: dropout rate of dnn layer
+        """
         super(CGC, self).__init__()
         self.num_tasks = num_tasks
         self.shared_expert_num = shared_expert_num
@@ -486,34 +457,26 @@ class CGC(nn.Module):
         self.shared_expert_networks = nn.ModuleList()
         self.specific_expert_networks = nn.ModuleList()
         self.shared_gate = nn.Sequential(
-            nn.Linear(
-                input_size,
-                num_tasks * specific_expert_num + shared_expert_num,
-                bias=False,
-            ),
+            nn.Linear(input_size, num_tasks * specific_expert_num + shared_expert_num, bias=False),
             nn.Softmax(dim=1),
         )
         self.specific_gates = nn.ModuleList()
 
         # build task-shared expert layer
         for _ in range(shared_expert_num):
-            expert_network = MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
+            expert_network = MLP(expert_dnn_hidden_units, input_size, dropout=dropout)
             self.shared_expert_networks.append(expert_network)
 
         # build task-specific expert layer
         for _ in range(num_tasks):
             for _ in range(specific_expert_num):
-                expert_network = MLP(
-                    expert_dnn_hidden_units, input_size, "relu", dropout
-                )
+                expert_network = MLP(expert_dnn_hidden_units, input_size, dropout)
                 self.specific_expert_networks.append(expert_network)
 
         # task-specific gate
         for _ in range(num_tasks):
             gate_network = nn.Sequential(
-                nn.Linear(
-                    input_size, specific_expert_num + shared_expert_num, bias=False
-                ),
+                nn.Linear(input_size, specific_expert_num + shared_expert_num, bias=False),
                 nn.Softmax(dim=1),
             )
             self.specific_gates.append(gate_network)
@@ -523,9 +486,7 @@ class CGC(nn.Module):
         specific_expert_outputs = []
         for i in range(self.num_tasks):
             for j in range(self.specific_expert_num):
-                specific_expert_output = self.specific_expert_networks[
-                    i * self.specific_expert_num + j
-                ](inputs[i])
+                specific_expert_output = self.specific_expert_networks[i * self.specific_expert_num + j](inputs[i])
                 specific_expert_outputs.append(specific_expert_output)
         shared_expert_outputs = []
         for i in range(self.shared_expert_num):
@@ -535,10 +496,7 @@ class CGC(nn.Module):
         cgc_outs = []
         for i in range(self.num_tasks):
             cur_experts = (
-                specific_expert_outputs[
-                    i * self.specific_expert_num : (i + 1) * self.specific_expert_num
-                ]
-                + shared_expert_outputs
+                specific_expert_outputs[i * self.specific_expert_num : (i + 1) * self.specific_expert_num] + shared_expert_outputs
             )
             expert_concat = torch.stack(cur_experts, dim=2)
             gate_out = self.specific_gates[i](inputs[i])  # gate[i] for task input[i]
@@ -571,19 +529,35 @@ class CGC(nn.Module):
 class PLE(nn.Module):
     def __init__(
         self,
-        num_tasks,
-        input_size,
-        feature_vocabulary,
-        embedding_size,
-        shared_expert_num=1,
-        specific_expert_num=1,
-        num_levels=2,
-        expert_dnn_hidden_units=(256,),
-        tower_dnn_hidden_units=(64,),
-        reg_embedding=0,
-        reg_dnn=0,
-        dropout=None,
+        num_tasks: int,
+        input_size: int,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        shared_expert_num: int,
+        specific_expert_num: int,
+        num_levels: int,
+        expert_dnn_hidden_units: List[int],
+        tower_dnn_hidden_units: List[int],
+        reg_embedding: float,
+        reg_dnn: float,
+        dropout: Optional[List[float]] = None,
     ):
+        """PLE initialization.
+
+        Args:
+            num_tasks: number of tasks
+            input_size: input size of expert network
+            feature_vocabulary: record the range of features
+            embedding_size: embedding size of features
+            shared_expert_num: number of shared experts
+            specific_expert_num: number of specific experts
+            num_levels: number of levels
+            expert_dnn_hidden_units: hidden units of expert network
+            tower_dnn_hidden_units: hidden units of tower network
+            reg_embedding: regularization coefficient of embedding layer
+            reg_dnn: regularization coefficient of dnn layer
+            dropout: dropout rate of dnn layer
+        """
         super(PLE, self).__init__()
         self.num_tasks = num_tasks
         self.num_levels = num_levels
@@ -618,15 +592,13 @@ class PLE(nn.Module):
                 MLP(
                     list(tower_dnn_hidden_units) + [1],
                     expert_dnn_hidden_units[-1],
-                    "sigmoid",
+                    output_activation="sigmoid",
                 )
             )
 
     def forward(self, x):
         feature_embedding = self.embedding_network(x)
-        ple_inputs = [feature_embedding] * (
-            self.num_tasks + 1
-        )  # [task1, task2, ... taskn, shared task]
+        ple_inputs = [feature_embedding] * (self.num_tasks + 1)  # [task1, task2, ... taskn, shared task]
         ple_outputs = []
 
         for i in range(self.num_levels):
@@ -656,32 +628,43 @@ class PLE(nn.Module):
 class SparseSharing(nn.Module):
     def __init__(
         self,
-        num_tasks,
-        feature_vocabulary,
-        embedding_size,
-        input_size,
-        shared_dnn_hidden_units,
-        tower_dnn_hidden_units,
-        reg_embedding,
+        num_tasks: int,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        input_size: int,
+        shared_dnn_hidden_units: List[int],
+        tower_dnn_hidden_units: List[int],
+        reg_embedding: float,
     ):
+        """SparseSharing initialization.
+
+        Args:
+            num_tasks: number of tasks
+            feature_vocabulary: record the range of features
+            embedding_size: embedding size of features
+            input_size: input size of dnn layer
+            shared_dnn_hidden_units: hidden units of dnn layer
+            tower_dnn_hidden_units: hidden units of tower layer
+            reg_embedding: regularization coefficient of embedding layer
+        """
         super(SparseSharing, self).__init__()
         self.num_tasks = num_tasks
         self.reg_embedding = reg_embedding
         self.embedding_network = EmbeddingNetwork(feature_vocabulary, embedding_size)
-        self.shared_bottom = MLP(shared_dnn_hidden_units, input_size)
+        self.shared_network = MLP(shared_dnn_hidden_units, input_size)
         self.tower_networks = nn.ModuleList()
         for _ in range(num_tasks):
             self.tower_networks.append(
                 MLP(
                     list(tower_dnn_hidden_units) + [1],
                     shared_dnn_hidden_units[-1],
-                    "sigmoid",
+                    output_activation="sigmoid",
                 )
             )
 
-    def forward(self, x, task_id=0):
+    def forward(self, x, task_id):
         dnn_input = self.embedding_network(x)
-        mid_output = self.shared_bottom(dnn_input)
+        mid_output = self.shared_network(dnn_input)
         final_output = self.tower_networks[task_id](mid_output)
         return final_output.squeeze()
 
@@ -751,35 +734,41 @@ class ReverseLayerF(Function):
 class MPTRec(nn.Module):
     def __init__(
         self,
-        num_tasks,
-        feature_vocabulary,
-        embedding_size,
-        input_size,
-        expert_dnn_hidden_units,
-        tower_dnn_hidden_units,
-        reg_embedding=0,
-        reg_dnn=0,
-        dropout=None,
-        device=None,
+        num_tasks: int,
+        feature_vocabulary: Dict[str, int],
+        embedding_size: int,
+        input_size: int,
+        expert_dnn_hidden_units: List[int],
+        tower_dnn_hidden_units: List[int],
+        reg_embedding: float,
+        reg_dnn: float,
+        dropout=Optional[List[float]],
     ):
         super(MPTRec, self).__init__()
         self.num_tasks = num_tasks
         self.reg_embedding = reg_embedding
         self.reg_dnn = reg_dnn
-        self.device = device
         self.specific_networks = nn.ModuleList()
         self.gate_networks = nn.ModuleList()
         self.tower_networks = nn.ModuleList()
         self.embedding_networks = EmbeddingNetwork(feature_vocabulary, embedding_size)
-        self.shared_network = MLP(expert_dnn_hidden_units, input_size, output_activation="relu", dropout=dropout)
-        self.env_embeddings = nn.Embedding(num_tasks, expert_dnn_hidden_units[-1])
-        self.env_classifier = LinearLogSoftMaxEnvClassifier(
-            expert_dnn_hidden_units[-1], num_tasks
+        self.shared_network = MLP(
+            expert_dnn_hidden_units,
+            input_size,
+            output_activation="relu",
+            dropout=dropout,
         )
+        self.env_embedding_network = nn.Embedding(num_tasks, expert_dnn_hidden_units[-1])
+        self.env_classifier = LinearLogSoftMaxEnvClassifier(expert_dnn_hidden_units[-1], num_tasks)
 
         for _ in range(num_tasks):
             self.specific_networks.append(
-                MLP(expert_dnn_hidden_units, input_size, output_activation="relu", dropout=dropout)
+                MLP(
+                    expert_dnn_hidden_units,
+                    input_size,
+                    output_activation="relu",
+                    dropout=dropout,
+                )
             )
             self.gate_networks.append(
                 nn.Sequential(nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=1))
@@ -794,12 +783,12 @@ class MPTRec(nn.Module):
 
     def forward(self, x, alpha=1):
         dnn_input = self.embedding_networks(x)
-        uni_rep = self.shared_network(dnn_input)
+        gen_rep = self.shared_network(dnn_input)
 
-        uni_preds = []
+        gen_preds = []
         for i in range(self.num_tasks):
-            output = self.tower_networks[i](uni_rep)
-            uni_preds.append(output.squeeze())
+            output = self.tower_networks[i](gen_rep)
+            gen_preds.append(output.squeeze())
 
         gate_outs = []
         for gate in self.gate_networks:
@@ -807,21 +796,21 @@ class MPTRec(nn.Module):
 
         fused_preds = []
         for i in range(self.num_tasks):
-            prop_rep = self.specific_networks[i](dnn_input)
-            env_embedding = self.env_embeddings(
+            spec_rep = self.specific_networks[i](dnn_input)
+            env_embedding = self.env_embedding_network(
                 torch.full((dnn_input.size()[0],), i).to(self.device)
             )
-            env_aware_rep = prop_rep * env_embedding
-            all_reps = torch.stack([env_aware_rep, uni_rep], dim=2)
+            env_aware_rep = spec_rep * env_embedding
+            all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
             fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
             output = self.tower_networks[i](fused_rep)
             fused_preds.append(output.squeeze())
 
-        rev_uni_rep = ReverseLayerF.apply(uni_rep, alpha)
-        env_pred = self.env_classifier(rev_uni_rep)
+        rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
+        env_pred = self.env_classifier(rev_gen_rep)
 
         return {
-            "uni_preds": uni_preds,
+            "uni_preds": gen_preds,
             "fused_preds": fused_preds,
             "env_pred": env_pred,
         }

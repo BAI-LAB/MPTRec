@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 
 sys.path.append('/home/hl/MultiTask/')
 
-from multitaskrec.train import TrainManager
+from multitaskrec.train import MultiTaskTrainManager
 from multitaskrec.model import SharedBottom
 from multitaskrec.dataset import CensusIncomeDataset
 from config import CensusIncome_Vocabulary_Size
@@ -51,7 +51,7 @@ def main():
     #     print('FLOPs:', float(flops.total() / 1e6))
     #     break
 
-    train_manager = TrainManager(
+    train_manager = MultiTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,

@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 sys.path.append('/home/hl/MultiTask/')
 
 from multitaskrec.model import SingleTask
-from multitaskrec.train import TrainManager
+from multitaskrec.train import MultiTaskTrainManager
 from multitaskrec.dataset import CensusIncomeDataset
 from config import CensusIncome_Vocabulary_Size
 
@@ -43,7 +43,7 @@ def main():
     from multitaskrec.functions import compute_cost_0
     compute_cost_0(model, train_loader)
 
-    train_manager = TrainManager(
+    train_manager = MultiTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,

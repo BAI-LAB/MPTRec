@@ -51,10 +51,10 @@ def main():
         uni_coe=uni_coe,
         env_coe=env_coe
     )
-    train_manager.train_two_task()
+    train_manager.train()
 
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation_two_task(test_loader)
+    auc_test = train_manager.evaluation(test_loader)
     print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}'.format(auc_test[0], auc_test[1]))
 
 

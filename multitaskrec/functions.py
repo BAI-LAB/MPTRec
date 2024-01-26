@@ -7,7 +7,7 @@ sys.path.append('/data/hl/MultiTask')
 
 from multitaskrec.model import MMOE, PLE, SharedBottom, SingleTask, SparseSharing
 from multitaskrec.dataset import AliCCPDataset, ByteRecDataset, CensusIncomeDataset
-from multitaskrec.train import CSRecTrainManager, SparseSharingTrainManager, TrainManager
+from multitaskrec.train import CSRecTrainManager, SparseSharingTrainManager, MultiTaskTrainManager
 from config import AliCCP_Vocabulary_Size, ByteRec_Vocabulary_Size, CensusIncome_Vocabulary_Size
 
 

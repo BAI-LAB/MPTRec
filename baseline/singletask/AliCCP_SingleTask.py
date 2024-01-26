@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 sys.path.append('/home/hl/MultiTask/')
 
 from multitaskrec.model import SingleTask
-from multitaskrec.train import TrainManager
+from multitaskrec.train import MultiTaskTrainManager
 from multitaskrec.dataset import AliCCPDataset
 from config import AliCCP_Vocabulary_Size
 
@@ -43,7 +43,7 @@ def main():
     #     print('FLOPs:', flops.total() / 1e6)
     #     break
     
-    train_manager = TrainManager(
+    train_manager = MultiTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
