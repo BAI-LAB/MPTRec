@@ -18,18 +18,20 @@ class SingleTaskTrainManager:
         model: nn.Module,
         train_loader: DataLoader,
         val_loader: DataLoader,
-        task_name: List[str],
+        task_id: int,
+        task_name: str,
         lr: float,
         epochs: int,
         patience: int,
         wandb_log: bool = False,
     ):
-        """Train Manager for SharedBottom, MMOE, PLE, STEM
+        """Train Manager for SingleTask
 
         Args:
             model: model
             train_loader: train data loader
             val_loader: val data loader
+            task_id: task id
             task_name: task name
             lr: learning rate
             epochs: epochs
@@ -42,29 +44,12 @@ class SingleTaskTrainManager:
         self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=lr)
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.task_id = task_id
         self.task_name = task_name
         self.epochs = epochs
         self.patience = patience
+        self.wandb_log = wandb_log
         self.best_weight = None
-
-    def _train_a_batch(self, y: List[torch.Tensor], features: Dict[str, torch.Tensor]):
-        """Train a batch
-
-        Args:
-            y: label of two tasks, the shape of tensor is (batch_size, )
-            features: features, the shape of tensor is (batch_size, )
-        """
-        pred = self.model(features)
-
-        batch_loss = self.model.get_l2_reg()
-        for task_id in range(2):
-            batch_loss += self.loss_func(pred[task_id].cpu(), y[task_id].float())
-
-        self.optimizer.zero_grad()
-        batch_loss.backward()
-        self.optimizer.step()
-
-        return batch_loss
 
     def train(self):
         earlystop_count = 0
@@ -72,38 +57,45 @@ class SingleTaskTrainManager:
 
         for epoch in range(1, self.epochs + 1):
             self.model.train()
-
             epoch_loss = 0
+
             for y_0, y_1, features in tqdm(self.train_loader, unit="batch"):
                 y = [y_0, y_1]
                 for key in features.keys():
                     features[key] = features[key].to(self.device)
-                epoch_loss += self._train_a_batch(y, features)
+                pred = self.model(features)
+                batch_loss = (
+                    self.loss_func(pred.cpu(), y[task_id].float())
+                    + self.model.get_l2_reg()
+                )
+
+                self.optimizer.zero_grad()
+                batch_loss.backward()
+                self.optimizer.step()
+
+                epoch_loss += batch_loss
 
             epoch_loss /= len(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            if wandb_log:
+            if self.wandb_log:
                 wandb.log(
                     {
                         "Loss": epoch_loss,
-                        f"AUC-Val-{self.task_name[0]}": auc_val[0],
-                        f"AUC-Val-{self.task_name[1]}": auc_val[1],
+                        f"AUC-Val-{self.task_name}": auc_val,
                     }
                 )
             print(
-                "Epoch:{}, Loss:{}, AUC-Val-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
+                "Epoch:{}, Loss:{}, AUC-Val-{}:{:.4f}".format(
                     epoch,
                     epoch_loss,
-                    self.task_name[0],
-                    auc_val[0],
-                    self.task_name[1],
-                    auc_val[1],
+                    self.task_name,
+                    auc_val,
                 )
             )
 
-            if auc_val[0] > best_auc_score:
+            if auc_val > best_auc_score:
                 earlystop_count = 0
-                best_auc_score = auc_val[0]
+                best_auc_score = auc_val
                 self.best_weight = copy.deepcopy(self.model.state_dict())
             else:
                 earlystop_count += 1
@@ -115,25 +107,22 @@ class SingleTaskTrainManager:
     @torch.no_grad()
     def evaluation(self, data_loader: DataLoader):
         self.model.eval()
-        y_true = [[] for _ in range(2)]
-        y_hat = [[] for _ in range(2)]
+        y_true = []
+        y_hat = []
 
         for y_0, y_1, features in data_loader:
             y = [y_0, y_1]
             for key in features.keys():
                 features[key] = features[key].to(self.device)
             pred = self.model(features)
-            for i in range(2):
-                y_true[i].append(y[i])
-                y_hat[i].append(pred[i])
+            y_true.append(y[self.task_id])
+            y_hat.append(pred)
 
-        auc_score = []
-        for i in range(2):
-            y = torch.cat(y_true[i])
-            pred = torch.cat(y_hat[i])
-            auc_score.append(roc_auc_score(y.int(), pred.cpu()))
+        y_true = torch.cat(y_true)
+        y_hat = torch.cat(y_hat)
+        auc_score = roc_auc_score(y_true.int(), y_hat.cpu())
 
-        return auc_scor
+        return auc_score
 
     def count_params(self):
         trainable_params_num, total_params_num = 0, 0
@@ -147,11 +136,10 @@ class SingleTaskTrainManager:
         print("=" * 64)
 
     def compute_cost(self):
-        device = next(self.model.parameters()).device
         self.count_params()
         for _, _, features in self.train_loader:
             for key in features.keys():
-                features[key] = features[key].to(device)
+                features[key] = features[key].to(self.device)
             flops = FlopCountAnalysis(self.model, features)
             print("FLOPs:", flops.total())
             print("=" * 64)
@@ -228,7 +216,7 @@ class MultiTaskTrainManager:
 
             epoch_loss /= len(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            if wandb_log:
+            if self.wandb_log:
                 wandb.log(
                     {
                         "Loss": epoch_loss,
@@ -293,11 +281,10 @@ class MultiTaskTrainManager:
         print("=" * 64)
 
     def compute_cost(self):
-        device = next(self.model.parameters()).device
         self.count_params()
         for _, _, features in self.train_loader:
             for key in features.keys():
-                features[key] = features[key].to(device)
+                features[key] = features[key].to(self.device)
             flops = FlopCountAnalysis(self.model, features)
             print("FLOPs:", flops.total())
             print("=" * 64)
@@ -627,7 +614,7 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             fused_loss_1_avg = env_loss_sum / len(self.train_loader)
             env_loss_avg = env_loss_sum / len(self.train_loader)
 
-            if wandb_log:
+            if self.wandb_log:
                 wandb.log(
                     {
                         "gen_loss_0": gen_loss_0_avg,

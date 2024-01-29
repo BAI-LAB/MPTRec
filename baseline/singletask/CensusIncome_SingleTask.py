@@ -1,33 +1,32 @@
-import sys
-import torch
-import warnings
 import numpy as np
-from torch.utils.data import DataLoader
+import torch
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
-
-from multitaskrec.model import SingleTask
-from multitaskrec.train import MultiTaskTrainManager
-from multitaskrec.dataset import CensusIncomeDataset
 from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import SingleTask
+from multitaskrec.train import SingleTaskTrainManager
 
-warnings.filterwarnings('ignore')
 
+def main(args):
+    # set random seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
-def main():
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/test.gz')
-    val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
+    # load dataset
+    train_dataset = CensusIncomeDataset("dataset/Census-income/train.gz")
+    test_dataset = CensusIncomeDataset("dataset/Census-income/test.gz")
+    val_dataset, test_dataset = train_test_split(
+        test_dataset, test_size=0.5, random_state=args.seed
+    )
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
 
+    # build model
     model = SingleTask(
         feature_vocabulary=CensusIncome_Vocabulary_Size,
         embedding_size=4,
@@ -37,28 +36,58 @@ def main():
         reg_embedding=0,
         reg_dnn=0,
     )
-    device = torch.device("cuda:3")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    from multitaskrec.functions import compute_cost_0
-    compute_cost_0(model, train_loader)
-
-    train_manager = MultiTaskTrainManager(
+    # build train manager
+    task_names = ["Income", "Marital"]
+    train_manager = SingleTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Income', 'Marital'],
-        lr=1e-3
+        task_id=args.task_id,
+        task_name=task_names[args.task_id],
+        lr=1e-3,
+        epochs=30,
+        patience=5,
+        wandb_log=False,
     )
-    train_manager.train(1, task_id)
+    train_manager.train()
 
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    if args.wandb_log:
+        wandb.init(
+            project="multitaskrec",
+            config={
+                "model": "SingleTask",
+                "dataset": "CensusIncome",
+                "task_id": args.task_id,
+                "task_name": task_names[args.task_id],
+                "seed": args.seed,
+            },
+        )
+        train_manager.train()
+    else:
+        train_manager.train()
+
+    # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 1, task_id)
-    task_name = ['Income', 'Marital']
-    print('AUC-Test-{}:{:.4f}'.format(task_name[task_id], auc_test[0]))
+    auc_test = train_manager.evaluation(test_loader)
+    print("AUC-Test-{}:{:.4f}".format(task_names[args.task_id], auc_test))
+    if args.wandb_log:
+        wandb.log({"AUC-Test-{}".format(task_names[args.task_id]): auc_test})
+        wandb.finish()
 
 
-if __name__ == '__main__':
-    for task_id in range(0, 2):
-        for seed in [1685480945, 1685463909, 1685477428, 1685459668, 1685496394]:
-            main()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task_id", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--wandb_log", type=bool, default=False)
+    args = parser.parse_args()
+
+    main(args)

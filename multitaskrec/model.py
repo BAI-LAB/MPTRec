@@ -138,7 +138,7 @@ class SingleTask(nn.Module):
         dnn_input = self.embedding_network(x)
         mid_output = self.shared_network(dnn_input)
         final_output = self.tower_network(mid_output)
-        return [final_output.squeeze()]
+        return final_output.squeeze()
 
     def get_l2_reg(self):
         loss_embedding = self.embedding_network.get_l2_reg()
