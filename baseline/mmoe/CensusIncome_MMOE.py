@@ -2,14 +2,14 @@ import argparse
 
 import numpy as np
 import torch
+import wandb
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-import wandb
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MMOE
-from multitaskrec.train import MultiTaskTrainManager
+from multitaskrec.train import TrainManager
 
 
 def main(seed, gpu):
@@ -44,8 +44,7 @@ def main(seed, gpu):
     device = torch.device(f"cuda:{gpu}")
     model.to(device)
 
-    # build train manager
-    train_manager = MultiTaskTrainManager(
+    train_manager = TrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -53,7 +52,6 @@ def main(seed, gpu):
         lr=1e-3,
         epochs=10,
         patience=1,
-        wandb_log=False,
     )
 
     # counting parameters and floating-point operands
@@ -79,9 +77,9 @@ def main(seed, gpu):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--seed", type=int, default=1685480945)
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument("--wandb_log", type=bool, default=False)
     args = parser.parse_args()
 
     main(args.seed, args.gpu)
