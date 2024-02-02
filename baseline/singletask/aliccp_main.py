@@ -1,71 +1,93 @@
-import sys
-import torch
-import warnings
+import argparse
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
-
-from multitaskrec.model import SingleTask
-from multitaskrec.train import TrainManager
-from multitaskrec.dataset import AliCCPDataset
 from config import AliCCP_Vocabulary_Size
-
-warnings.filterwarnings('ignore')
-
-
-def main():
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-
-    model = SingleTask(
-        feature_vocabulary=AliCCP_Vocabulary_Size,
-        embedding_size=5,
-        input_size=90,
-        shared_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
-        reg_embedding=0,
-        reg_dnn=0,
-        dropout=(0.1, 0.3)
-    )
-    device = torch.device("cuda:7")
-    model.to(device)
-
-    # from fvcore.nn import FlopCountAnalysis
-    # from utils.functions import count_params
-    # count_params(model)
-    # for _, _, features in train_loader:
-    #     for key in features.keys():
-    #         features[key] = features[key].to(device)
-    #     flops = FlopCountAnalysis(model, features)
-    #     print('FLOPs:', flops.total() / 1e6)
-    #     break
-    
-    train_manager = TrainManager(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        task_name=['CTR', 'CVR'],
-        lr=1e-4
-    )
-    train_manager.train(1, task_id)
-
-    model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 1, task_id)
-    task_name = ['CTR', 'CVR']
-    print('AUC-Test-{}:{:.4f}'.format(task_name[task_id], auc_test[0]))
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import SingleTask
+from multitaskrec.train import SingleTaskTrainManager
 
 
-if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', -1)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', -1)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', -1)
+def main(args):
+    # set seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+
+    # load dataset
+    train_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
+    val_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
+    test_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
 
-    for task_id in range(2):
-        for seed in [1688723512, 1688723740, 1688738016, 1688749593, 1688762746]:
-            main()
+    # build model
+    model = SingleTask(
+        feature_vocabulary=AliCCP_Vocabulary_Size,
+        embedding_size=5,
+        input_size=90,
+        shared_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
+        reg_embedding=0,
+        reg_dnn=0,
+        dropout=[0.1, 0.3],
+    )
+    device = torch.device(f"cuda:{args.gpu}")
+    model.to(device)
+
+    # build train manager
+    task_names = ["CTR", "CVR"]
+    train_manager = SingleTaskTrainManager(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        task_id=args.task_id,
+        task_name=task_names[args.task_id],
+        lr=1e-4,
+        epochs=10,
+        patience=3,
+        wandb_log=args.wandb_log,
+    )
+
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    if args.wandb_log:
+        wandb.init(
+            project="multitaskrec",
+            config={
+                "model": "SingleTask",
+                "dataset": "AliCCP",
+                "task_id": args.task_id,
+                "task_name": task_names[args.task_id],
+                "seed": args.seed,
+            },
+        )
+        train_manager.train()
+    else:
+        train_manager.train()
+
+    # testing
+    model.load_state_dict(train_manager.best_weight)
+    auc_test = train_manager.evaluation(test_loader)
+    print("AUC-Test-{}:{:.4f}".format(task_name[task_id], auc_test))
+    if args.wandb_log:
+        wandb.log({"AUC-Test-{}".format(task_name[task_id]): auc_test})
+        wandb.finish()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--task_id", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--wandb_log", type=bool, default=False)
+    args = parser.parse_args()
+
+    main(args)

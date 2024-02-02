@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
@@ -10,7 +12,7 @@ from multitaskrec.train import SingleTaskTrainManager
 
 
 def main(args):
-    # set random seed
+    # set seed
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -31,8 +33,8 @@ def main(args):
         feature_vocabulary=CensusIncome_Vocabulary_Size,
         embedding_size=4,
         input_size=127,
-        shared_dnn_hidden_units=(256, 128),
-        tower_dnn_hidden_units=(64, 32),
+        shared_dnn_hidden_units=[256, 128],
+        tower_dnn_hidden_units=[64, 32],
         reg_embedding=0,
         reg_dnn=0,
     )
@@ -50,7 +52,7 @@ def main(args):
         lr=1e-3,
         epochs=30,
         patience=5,
-        wandb_log=False,
+        wandb_log=args.wandb_log,
     )
 
     # counting parameters and floating-point operands
@@ -83,8 +85,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--task_id", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--wandb_log", type=bool, default=False)
     args = parser.parse_args()
