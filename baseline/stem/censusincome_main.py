@@ -1,32 +1,29 @@
 import argparse
-import os
 
 import numpy as np
 import torch
-import wandb
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+import wandb
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
-from multitaskrec.model import STEM
-from multitaskrec.train import TrainManager
-
-os.environ["WANDB_MODE"] = "dryrun"
+from multitaskrec.model import MMOE
+from multitaskrec.train import MultiTaskTrainManager
 
 
-def main(seed, gpu):
-    # set random seed
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+def main(args):
+    # set seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
     # load dataset
     train_dataset = CensusIncomeDataset("dataset/Census-income/train.gz")
     test_dataset = CensusIncomeDataset("dataset/Census-income/test.gz")
     val_dataset, test_dataset = train_test_split(
-        test_dataset, test_size=0.5, random_state=seed
+        test_dataset, test_size=0.5, random_state=args.seed
     )
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -45,46 +42,53 @@ def main(seed, gpu):
         reg_embedding=0.006,
         reg_dnn=0,
     )
-    device = torch.device(f"cuda:{gpu}")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    train_manager = TrainManager(
+    # build train manager
+    train_manager = MultiTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         task_name=["Income", "Marital"],
         lr=1e-3,
-        epochs=5,
+        epochs=30,
         patience=5,
+        wandb_log=args.wandb_log,
     )
 
     # counting parameters and floating-point operands
     train_manager.compute_cost()
 
     # training
-    wandb.init(
-        project="multitaskrec",
-        config={"model": "mmoe", "dataset": "CensusIncome", "seed": seed},
-    )
-    train_manager.train()
-    wandb.finish()
+    if args.wandb_log:
+        wandb.init(
+            project="multitaskrec",
+            config={"model": "MMOE", "dataset": "CensusIncome", "seed": args.seed},
+        )
+        train_manager.train()
+    else:
+        train_manager.train()
 
-    # evaluation
+    # testing
     model.load_state_dict(train_manager.best_weight)
-    torch.save(model.state_dict(), "mmoe_censusincome.pt")
     auc_test = train_manager.evaluation(test_loader)
     print(
         "AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}".format(
             auc_test[0], auc_test[1]
         )
     )
+    if args.wandb_log:
+        wandb.log({"AUC-Test-Income": auc_test[0], "AUC-Test-Marital": auc_test[1]})
+        wandb.finish()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--wandb_log", type=bool, default=False)
     args = parser.parse_args()
 
-    main(args.seed, args.gpu)
+    main(args)
