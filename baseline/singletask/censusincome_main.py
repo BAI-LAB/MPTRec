@@ -52,7 +52,6 @@ def main(args):
         patience=5,
         wandb_log=False,
     )
-    train_manager.train()
 
     # counting parameters and floating-point operands
     train_manager.compute_cost()

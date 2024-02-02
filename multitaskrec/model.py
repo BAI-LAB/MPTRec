@@ -797,6 +797,7 @@ class MPTRec(nn.Module):
         fused_preds = []
         for i in range(self.num_tasks):
             spec_rep = self.specific_networks[i](dnn_input)
+            # TODO: 找到正确的设备
             env_embedding = self.env_embedding_network(
                 torch.full((dnn_input.size()[0],), i).to(self.device)
             )

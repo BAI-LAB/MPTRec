@@ -1,31 +1,33 @@
-import torch
-import warnings
 import numpy as np
-from torch.utils.data import DataLoader
+import torch
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
+
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDattmuxaset
 from multitaskrec.model import MPTRec
 from multitaskrec.train import MPTRecTrainManager
-from multitaskrec.dataset import CensusIncomeDataset
-from config import CensusIncome_Vocabulary_Size
-
-warnings.filterwarnings('ignore')
 
 
-def main():
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+def main(args):
+    # set random seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
-    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz')
-    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz')
-    val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
+    # load dataset
+    train_dataset = CensusIncomeDataset("dataset/Census-income/train.gz")
+    test_dataset = CensusIncomeDataset("dataset/Census-income/test.gz")
+    val_dataset, test_dataset = train_test_split(
+        test_dataset, test_size=0.5, random_state=args.seed
+    )
     env_ids = torch.randint(0, 2, size=(len(train_dataset),))
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
 
-    device = torch.device("cuda:3")
+    # build model
     model = MPTRec(
         num_tasks=2,
         feature_vocabulary=CensusIncome_Vocabulary_Size,
@@ -35,36 +37,62 @@ def main():
         tower_dnn_hidden_units=[64, 32],
         reg_embedding=reg_embedding,
         reg_dnn=reg_dnn,
-        device=device
     )
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    # from utils.functions import compute_cost_0
-    # compute_cost_0(model, train_loader)
-
+    # build train manager
     train_manager = MPTRecTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         env_ids=env_ids,
-        task_name=['Income', 'Marital'],
+        task_name=["Income", "Marital"],
         lr=1e-3,
         batch_size=256,
-        uni_coe=uni_coe,
-        env_coe=env_coe,
+        epochs=30,
+        patience=5,
+        gen_coe=0.9,
+        env_coe=0.1,
+        clustering_interval=2,
+        wandb_log=args.wandb_log,
     )
-    train_manager.train_two_task()
 
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    if args.wandb_log:
+        wandb.init(
+            project="multitaskrec",
+            config={
+                "model": "MPTRec",
+                "dataset": "CensusIncome",
+                "seed": args.seed,
+            },
+        )
+        train_manager.train()
+    else:
+        train_manager.train()
+
+    # testing
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_two_task(test_loader)
-    print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}'.format(auc_test[0], auc_test[1]))
+    print(
+        "AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}".format(
+            auc_test[0], auc_test[1]
+        )
+    )
+    if args.wandb_log:
+        wandb.log({"AUC-Test-Income": auc_test[0], "AUC-Test-Marital": auc_test[1]})
+        wandb.finish()
 
 
-if __name__ == '__main__':
-    uni_coe = 0.
-    env_coe = 0.
-    reg_embedding = 0.006
-    reg_dnn = 3e-5
-    for seed in [1685480945, 1685463909, 1685477428]:
-        main()
-    print('两个任务CensusIncome')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=1685480945)
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--wandb_log", type=bool, default=False)
+    args = parser.parse_args()
+
+    main(args)

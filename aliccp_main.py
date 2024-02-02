@@ -1,21 +1,23 @@
-import torch
-import warnings
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
-from multitaskrec.model import MPTRec
-from multitaskrec.dataset import AliCCPDataset
-from multitaskrec.train import MPTRecTrainManager
-from config import AliCCP_Vocabulary_Size
 
-warnings.filterwarnings('ignore')
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import MPTRec
+from multitaskrec.train import MPTRecTrainManager
 
 
 def main():
+    # set seed
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
+    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -35,9 +37,6 @@ def main():
         device=device
     )
     model.to(device)
-
-    # from multitaskrec.functions import compute_cost_0
-    # compute_cost_0(model, train_loader)
 
     train_manager = MPTRecTrainManager(
         model=model,
@@ -59,9 +58,7 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.dev', 1000000)
-    test_dataset = AliCCPDataset('dataset/AliCCP/ctr_cvr.test', 10000000)
+
    
     uni_coe = 0.
     env_coe = 0.

@@ -2,10 +2,10 @@ import argparse
 
 import numpy as np
 import torch
-import wandb
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+import wandb
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MMOE
@@ -13,7 +13,7 @@ from multitaskrec.train import TrainManager
 
 
 def main(seed, gpu):
-    # set random seed
+    # set seed
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -44,14 +44,15 @@ def main(seed, gpu):
     device = torch.device(f"cuda:{gpu}")
     model.to(device)
 
+    # build train manager
     train_manager = TrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         task_name=["Income", "Marital"],
         lr=1e-3,
-        epochs=10,
-        patience=1,
+        epochs=30,
+        patience=5,
     )
 
     # counting parameters and floating-point operands
