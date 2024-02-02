@@ -1,25 +1,31 @@
-import sys
-import torch
-import warnings
+import argparse
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/data/hl/MultiTask/')
-
-from multitaskrec.model import PLE
-from multitaskrec.train import TrainManager
-from multitaskrec.dataset import ByteRecDataset
 from config import ByteRec_Vocabulary_Size
+from multitaskrec.dataset import ByteRecDataset
+from multitaskrec.model import MMOE
+from multitaskrec.train import MultiTaskTrainManager
 
-warnings.filterwarnings('ignore')
 
+def main(args):
+    # set seed
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
-def main():
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+    # load dataset
+    train_dataset = ByteRecDataset("dataset/Byte-Rec/train.gz")
+    val_dataset = ByteRecDataset("dataset/Byte-Rec/val.gz")
+    test_dataset = ByteRecDataset("dataset/Byte-Rec/test.gz")
+    train_loader = DataLoader(train_dataset, batch_size=4000)
+    val_loader = DataLoader(val_dataset, batch_size=4000)
+    test_loader = DataLoader(test_dataset, batch_size=4000)
 
+    # build model
     model = PLE(
         num_tasks=2,
         feature_vocabulary=ByteRec_Vocabulary_Size,
@@ -28,37 +34,56 @@ def main():
         shared_expert_num=1,
         specific_expert_num=1,
         num_levels=2,
-        expert_dnn_hidden_units=(128,),
-        tower_dnn_hidden_units=(32, 32),
+        expert_dnn_hidden_units=[128,],
+        tower_dnn_hidden_units=[32, 32],
         reg_embedding=1e-6,
-        reg_dnn=1e-6
+        reg_dnn=1e-6,
     )
-    device = torch.device("cuda:0")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    train_manager = TrainManager(
+    train_manager = MultiTaskTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        task_name=['Finish', 'Like'],
+        task_name=["Finish", "Like"],
+        lr=1e-4,
         epochs=10,
-        lr=1e-4
+        patience=3,
+        wandb_log=args.wandb_log,
     )
-    train_manager.train(2)
 
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    if args.wandb_log:
+        wandb.init(
+            project="multitaskrec",
+            config={"model": "PLE", "dataset": "ByteRec", "seed": args.seed},
+        )
+        train_manager.train()
+    else:
+        train_manager.train()
+
+    # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 2)
-    print('AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}'.format(auc_test[0], auc_test[1]))
+    auc_test = train_manager.evaluation(test_loader)
+    print(
+        "AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}".format(auc_test[0], auc_test[1])
+    )
+    if args.wandb_log:
+        wandb.log({"AUC-Test-Finish": auc_test[0], "AUC-Test-Like": auc_test[1]})
+        wandb.finish()
 
 
 if __name__ == '__main__':
-    train_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/train.gz')
-    val_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/val.gz')
-    test_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/test.gz')
-    train_loader = DataLoader(train_dataset, batch_size=4000)
-    val_loader = DataLoader(val_dataset, batch_size=4000)
-    test_loader = DataLoader(test_dataset, batch_size=4000)
+    parser = argparse.ArgumentParser()
 
-    for seed in [1688723512, 1688723740, 1688738016]:
-        main()
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--wandb_log", type=bool, default=False)
+    args = parser.parse_args()
 
+    main(args)
+    
