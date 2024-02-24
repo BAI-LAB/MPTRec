@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 sys.path.append('/home/hl/MultiTask/')
 
 from multitaskrec.model import SparseSharing
-from multitaskrec.dataset import AliCppDataset
+from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.train import CsRecTrainManager
-from config import AliCpp_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -22,7 +22,7 @@ def main():
 
     model = SparseSharing(
         num_tasks=2,
-        feature_vocabulary=AliCpp_Vocabulary_Size,
+        feature_vocabulary=AliCCP_Vocabulary_Size,
         embedding_size=5,
         input_size=90,
         shared_dnn_hidden_units=(128, 64),
@@ -65,9 +65,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
-    val_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
-    test_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 10000000)
+    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

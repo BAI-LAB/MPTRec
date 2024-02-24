@@ -1,16 +1,19 @@
+import argparse
+
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
+import wandb
 from config import CensusIncome_Vocabulary_Size
-from multitaskrec.dataset import CensusIncomeDattmuxaset
+from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MPTRec
 from multitaskrec.train import MPTRecTrainManager
 
 
 def main(args):
-    # set random seed
+    # set seed
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -35,8 +38,8 @@ def main(args):
         input_size=127,
         expert_dnn_hidden_units=[256, 128],
         tower_dnn_hidden_units=[64, 32],
-        reg_embedding=reg_embedding,
-        reg_dnn=reg_dnn,
+        reg_embedding=0.006,
+        reg_dnn=3e-5,
     )
     device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
@@ -64,7 +67,7 @@ def main(args):
     # training
     if args.wandb_log:
         wandb.init(
-            project="multitaskrec",
+            project="MULTITASKREC",
             config={
                 "model": "MPTRec",
                 "dataset": "CensusIncome",
@@ -77,7 +80,7 @@ def main(args):
 
     # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation_two_task(test_loader)
+    auc_test = train_manager.evaluation(test_loader)
     print(
         "AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}".format(
             auc_test[0], auc_test[1]
@@ -90,6 +93,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--seed", type=int, default=1685480945)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--wandb_log", type=bool, default=False)

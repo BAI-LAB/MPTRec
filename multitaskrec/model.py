@@ -742,7 +742,7 @@ class MPTRec(nn.Module):
         tower_dnn_hidden_units: List[int],
         reg_embedding: float,
         reg_dnn: float,
-        dropout=Optional[List[float]],
+        dropout: Optional[List[float]] = None,
     ):
         super(MPTRec, self).__init__()
         self.num_tasks = num_tasks
@@ -799,7 +799,7 @@ class MPTRec(nn.Module):
             spec_rep = self.specific_networks[i](dnn_input)
             # TODO: 找到正确的设备
             env_embedding = self.env_embedding_network(
-                torch.full((dnn_input.size()[0],), i).to(self.device)
+                torch.full((dnn_input.size()[0],), i).to(dnn_input.device)
             )
             env_aware_rep = spec_rep * env_embedding
             all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
@@ -811,7 +811,7 @@ class MPTRec(nn.Module):
         env_pred = self.env_classifier(rev_gen_rep)
 
         return {
-            "uni_preds": gen_preds,
+            "gen_preds": gen_preds,
             "fused_preds": fused_preds,
             "env_pred": env_pred,
         }

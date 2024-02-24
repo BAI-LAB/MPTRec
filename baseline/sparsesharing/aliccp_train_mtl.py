@@ -1,53 +1,46 @@
-import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
-
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import SparseSharing
-from multitaskrec.dataset import AliCppDataset
-from config import AliCpp_Vocabulary_Size
 from multitaskrec.train import SparseSharingTrainManager
-
-warnings.filterwarnings('ignore')
 
 
 def main():
+    # set seed
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
+    # load dataset
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
+    train_loader = DataLoader(train_dataset, batch_size=2000)
+    val_loader = DataLoader(val_dataset, batch_size=2000)
+    test_loader = DataLoader(test_dataset, batch_size=2000)
+
+    # build model
     model = SparseSharing(
         num_tasks=2,
-        feature_vocabulary=AliCpp_Vocabulary_Size,
+        feature_vocabulary=AliCCP_Vocabulary_Size,
         embedding_size=5,
         input_size=90,
-        shared_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
-        reg_embedding=1e-6
+        shared_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
+        reg_embedding=1e-6,
     )
-    device = torch.device("cuda:3")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
     all_mask = []
     for i in range(2):
         all_mask.append(torch.load(f'/home/hl/MultiTask/baseline/csrec/AliCpp/two_task/mask_{seed}_{i}.pt'))
-
-    # from fvcore.nn import FlopCountAnalysis
-    # from utils.functions import count_params
-    # count_params(model)
-    # for name in all_mask[0]:
-    #     a = (1 - all_mask[0][name]) * (1 - all_mask[1][name])
-    #     print('No training required:', a.sum())  
-    # for _, _, features in train_loader:
-    #     for key in features.keys():
-    #         features[key] = features[key].to(device)
-    #     flops = FlopCountAnalysis(model, features)
-    #     print('FLOPs:', flops.total() / 1e6)
-    #     break
 
     train_manager = SparseSharingTrainManager(
         model=model,
@@ -55,7 +48,10 @@ def main():
         val_loader=val_loader,
         all_mask=all_mask,
         task_name=['CTR', 'CVR'],
-        lr=1e-4
+        lr=1e-4,
+        epochs=10,
+        patience=3,
+        wandb_log=args.wandb_log,
     )
     train_manager.train(2)
 
@@ -65,9 +61,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
-    val_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
-    test_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 10000000)
+    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
+    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
+    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

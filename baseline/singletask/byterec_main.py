@@ -11,7 +11,7 @@ from multitaskrec.train import SingleTaskTrainManager
 
 
 def main(args):
-    # set random seed
+    # set seed
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
@@ -58,7 +58,7 @@ def main(args):
     # training
     if args.wandb_log:
         wandb.init(
-            project="multitaskrec",
+            project="MULTITASKREC",
             config={
                 "model": "SingleTask",
                 "dataset": "ByteRec",

@@ -18,9 +18,9 @@ def main(args):
     np.random.seed(args.seed)
 
     # load dataset
-    train_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
-    val_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
-    test_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -59,7 +59,7 @@ def main(args):
     # training
     if args.wandb_log:
         wandb.init(
-            project="multitaskrec",
+            project="MULTITASKREC",
             config={
                 "model": "SingleTask",
                 "dataset": "AliCCP",

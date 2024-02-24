@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from config import AliCpp_Vocabulary_Size
-from multitaskrec.dataset import AliCppDataset
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.model import MMOE
 from multitaskrec.train import MultiTaskTrainManager
 
@@ -18,9 +18,9 @@ def main(args):
     np.random.seed(args.seed)
 
     # load dataset
-    train_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
-    val_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
-    test_dataset = AliCppDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
+    train_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.train", 10000000)
+    val_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.dev", 1000000)
+    test_dataset = AliCCPDataset("dataset/AliCCP/ctr_cvr.test", 10000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -58,7 +58,7 @@ def main(args):
     # training
     if args.wandb_log:
         wandb.init(
-            project="multitaskrec",
+            project="MULTITASKREC",
             config={"model": "SharedBottom", "dataset": "AliCCP", "seed": args.seed},
         )
         train_manager.train()

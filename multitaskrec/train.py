@@ -179,6 +179,7 @@ class MultiTaskTrainManager:
         self.task_name = task_name
         self.epochs = epochs
         self.patience = patience
+        self.wandb_log = wandb_log
         self.best_weight = None
 
     def _train_a_batch(self, y: List[torch.Tensor], features: Dict[str, torch.Tensor]):
@@ -534,10 +535,11 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             task_name: task name
             lr: learning rate
             batch_size: batch size
-            gen_coe: coefficient of generalization loss
-            env_coe: coefficient of environment loss
             epochs: epochs
             patience: patience
+            gen_coe: coefficient of generalization loss
+            env_coe: coefficient of environment loss
+            clustering_interval: clustering interval
             wandb_log: whether to log to wandb
         """
         super().__init__(
@@ -608,10 +610,10 @@ class MPTRecTrainManager(MultiTaskTrainManager):
                 loss.backward()
                 self.optimizer.step()
 
-            gen_loss_0_avg = env_loss_sum / len(self.train_loader)
-            gen_loss_1_avg = env_loss_sum / len(self.train_loader)
-            fused_loss_0_avg = env_loss_sum / len(self.train_loader)
-            fused_loss_1_avg = env_loss_sum / len(self.train_loader)
+            gen_loss_0_avg = gen_loss_0_sum / len(self.train_loader)
+            gen_loss_1_avg = gen_loss_1_sum / len(self.train_loader)
+            fused_loss_0_avg = fused_loss_0_sum / len(self.train_loader)
+            fused_loss_1_avg = fused_loss_1_sum / len(self.train_loader)
             env_loss_avg = env_loss_sum / len(self.train_loader)
 
             if self.wandb_log:
@@ -640,14 +642,28 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             self.fused_loss_1_list.append(fused_loss_1_avg.item())
             self.env_loss_list.append(env_loss_avg.item())
 
-            if epoch % clustering_interval == 0:
+            if epoch % self.clustering_interval == 0:
                 self.env_ids = self.cluster()
 
             auc_train = self.evaluation(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            if sum(auc_val[0]) > best_auc_score:
+            print("Epoch:{}, AUC-Train-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
+                epoch,
+                self.task_name[0],
+                auc_train[0],
+                self.task_name[0],
+                auc_val[0],
+            ))
+            print("Epoch:{}, AUC-Train-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
+                epoch,
+                self.task_name[1],
+                auc_train[1],
+                self.task_name[1],
+                auc_val[1],
+            ))
+            if sum(auc_val) > best_auc_score:
                 earlystop_count = 0
-                best_auc_score = sum(auc_val[0])
+                best_auc_score = sum(auc_val)
                 self.best_weight = copy.deepcopy(self.model.state_dict())
             else:
                 earlystop_count += 1
@@ -703,4 +719,4 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             pred = torch.cat(y_hat[i])
             auc_score.append(roc_auc_score(y.int(), pred.cpu()))
 
-        return auc_scor
+        return auc_score

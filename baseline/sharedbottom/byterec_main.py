@@ -55,7 +55,7 @@ def main(args):
     # training
     if args.wandb_log:
         wandb.init(
-            project="multitaskrec",
+            project="MULTITASKREC",
             config={"model": "SharedBottom", "dataset": "ByteRec", "seed": args.seed},
         )
         train_manager.train()

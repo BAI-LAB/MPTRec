@@ -9,17 +9,17 @@ from torch.utils.data import DataLoader
 sys.path.append('/home/hl/MultiTask/')
 
 from multitaskrec.model import MPTRec
-from multitaskrec.dataset import AliCppDataset
+from multitaskrec.dataset import AliCCPDataset
 from multitaskrec.train import MPTRecTrainManager
-from config import AliCpp_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
 
 def main():
-    train_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 2000000)
-    val_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 200000)
-    test_dataset = AliCppDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 2000000)
+    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 2000000)
+    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 200000)
+    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 2000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -42,7 +42,7 @@ def main():
         device = torch.device("cuda:5")
         model = MPTRec(
             num_tasks=2,
-            feature_vocabulary=AliCpp_Vocabulary_Size,
+            feature_vocabulary=AliCCP_Vocabulary_Size,
             embedding_size=5,
             input_size=90,
             expert_dnn_hidden_units=(128, 64),
