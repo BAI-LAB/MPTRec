@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -38,35 +36,35 @@ def main():
     device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
 
-    all_mask = []
-    for i in range(2):
-        all_mask.append(torch.load(f'/home/hl/MultiTask/baseline/csrec/AliCpp/two_task/mask_{seed}_{i}.pt'))
-
+    # build train manager
     train_manager = SparseSharingTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        all_mask=all_mask,
-        task_name=['CTR', 'CVR'],
+        mask_path=f"mask/AliCCP/mask_{seed}.pt",
+        task_name=["CTR", "CVR"],
         lr=1e-4,
         epochs=10,
         patience=3,
-        wandb_log=args.wandb_log,
     )
-    train_manager.train(2)
 
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    train_manager.train()
+
+    # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 2)
-    print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}'.format(auc_test[0], auc_test[1]))
+    auc_test = train_manager.evaluation(test_loader)
+    print("AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}".format(auc_test[0], auc_test[1]))
 
 
-if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.train', 10000000)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.dev', 1000000)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCpp/ctr_cvr.test', 10000000)
-    train_loader = DataLoader(train_dataset, batch_size=2000)
-    val_loader = DataLoader(val_dataset, batch_size=2000)
-    test_loader = DataLoader(test_dataset, batch_size=2000)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    for seed in [1688723512, 1688723740, 1688738016, 1688749593, 1688762746]:
-        main()
+    parser.add_argument("--seed", type=int, default=1688723512)
+    parser.add_argument("--gpu", type=int, default=0)
+    args = parser.parse_args()
+
+    main(args)

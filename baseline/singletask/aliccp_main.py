@@ -50,35 +50,18 @@ def main(args):
         lr=1e-4,
         epochs=10,
         patience=3,
-        wandb_log=args.wandb_log,
     )
 
     # counting parameters and floating-point operands
     train_manager.compute_cost()
 
     # training
-    if args.wandb_log:
-        wandb.init(
-            project="MULTITASKREC",
-            config={
-                "model": "SingleTask",
-                "dataset": "AliCCP",
-                "task_id": args.task_id,
-                "task_name": task_names[args.task_id],
-                "seed": args.seed,
-            },
-        )
-        train_manager.train()
-    else:
-        train_manager.train()
+    train_manager.train()
 
     # testing
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation(test_loader)
     print("AUC-Test-{}:{:.4f}".format(task_name[task_id], auc_test))
-    if args.wandb_log:
-        wandb.log({"AUC-Test-{}".format(task_name[task_id]): auc_test})
-        wandb.finish()
 
 
 if __name__ == "__main__":
@@ -87,7 +70,6 @@ if __name__ == "__main__":
     parser.add_argument("--task_id", type=int, default=0)
     parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument("--wandb_log", type=bool, default=False)
     args = parser.parse_args()
 
     main(args)

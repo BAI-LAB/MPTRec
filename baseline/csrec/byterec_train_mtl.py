@@ -1,67 +1,71 @@
-import sys
-import torch
-import warnings
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/data/hl/MultiTask/')
-
-from multitaskrec.model import SparseSharing
-from multitaskrec.dataset import ByteRecDataset
-from multitaskrec.train import CsRecTrainManager
 from config import ByteRec_Vocabulary_Size
-
-warnings.filterwarnings('ignore')
+from multitaskrec.dataset import ByteRecDataset
+from multitaskrec.model import SparseSharing
+from multitaskrec.train import CsRecTrainManager
 
 
 def main():
+    # set seed
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
+    # load dataset
+    train_dataset = ByteRecDataset("dataset/Byte-Rec/train.gz")
+    val_dataset = ByteRecDataset("dataset/Byte-Rec/val.gz")
+    test_dataset = ByteRecDataset("dataset/Byte-Rec/test.gz")
+    train_loader = DataLoader(train_dataset, batch_size=4000)
+    val_loader = DataLoader(val_dataset, batch_size=4000)
+    test_loader = DataLoader(test_dataset, batch_size=4000)
+
+    # build model
     model = SparseSharing(
         num_tasks=2,
         feature_vocabulary=ByteRec_Vocabulary_Size,
         embedding_size=4,
         input_size=32,
-        shared_dnn_hidden_units=(128, 64),
-        tower_dnn_hidden_units=(32, 32),
-        reg_embedding=1e-6
+        shared_dnn_hidden_units=[128, 64],
+        tower_dnn_hidden_units=[32, 32],
+        reg_embedding=1e-6,
     )
-    device = torch.device("cuda:0")
+    device = torch.device(f"cuda:{args.gpu}")
     model.to(device)
-    
-    all_mask = []
-    for i in range(2):
-        all_mask.append(torch.load(f'/data/hl/MultiTask/baseline/csrec/ByteRec/two_task/mask_{seed}_{i}.pt'))
-    
-    # from utils.functions import compute_cost_1
-    # compute_cost_1(model, all_mask, train_loader)
 
     train_manager = CsRecTrainManager(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        all_mask=all_mask,
-        task_name=['Finish', 'Like'],
+        mask_path=f"mask/ByteRec/mask_{seed}.pt",
+        task_name=["Finish", "Like"],
+        lr=1e-4,
         epochs=10,
-        lr=1e-4
+        patience=3,
     )
-    train_manager.train(2)
 
+    # counting parameters and floating-point operands
+    train_manager.compute_cost()
+
+    # training
+    train_manager.train()
+
+    # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation(test_loader, 2)
-    print('AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}'.format(auc_test[0], auc_test[1]))
+    auc_test = train_manager.evaluation(test_loader)
+    print(
+        "AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}".format(auc_test[0], auc_test[1])
+    )
 
 
-if __name__ == '__main__':
-    train_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/train.gz')
-    val_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/val.gz')
-    test_dataset = ByteRecDataset('/data/hl/MultiTask/data/ByteRec/test.gz')
-    train_loader = DataLoader(train_dataset, batch_size=4000)
-    val_loader = DataLoader(val_dataset, batch_size=4000)
-    test_loader = DataLoader(test_dataset, batch_size=4000)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    for seed in [1688723512, 1688723740, 1688738016]:
-        main()
+    parser.add_argument("--seed", type=int, default=1688723512)
+    parser.add_argument("--gpu", type=int, default=0)
+    args = parser.parse_args()
+
+    main(args)

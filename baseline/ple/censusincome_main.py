@@ -5,7 +5,6 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-import wandb
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
 from multitaskrec.model import MMOE
@@ -54,21 +53,13 @@ def main(args):
         lr=1e-3,
         epochs=30,
         patience=5,
-        wandb_log=args.wandb_log,
     )
 
     # counting parameters and floating-point operands
     train_manager.compute_cost()
 
     # training
-    if args.wandb_log:
-        wandb.init(
-            project="MULTITASKREC",
-            config={"model": "PLE", "dataset": "CensusIncome", "seed": args.seed},
-        )
-        train_manager.train()
-    else:
-        train_manager.train()
+    train_manager.train()
 
     # testing
     model.load_state_dict(train_manager.best_weight)
@@ -78,9 +69,6 @@ def main(args):
             auc_test[0], auc_test[1]
         )
     )
-    if args.wandb_log:
-        wandb.log({"AUC-Test-Income": auc_test[0], "AUC-Test-Marital": auc_test[1]})
-        wandb.finish()
 
 
 if __name__ == "__main__":
@@ -88,7 +76,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument("--wandb_log", type=bool, default=False)
     args = parser.parse_args()
 
     main(args)

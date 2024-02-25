@@ -9,8 +9,6 @@ from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import wandb
-
 
 class SingleTaskTrainManager:
     def __init__(
@@ -23,7 +21,6 @@ class SingleTaskTrainManager:
         lr: float,
         epochs: int,
         patience: int,
-        wandb_log: bool = False,
     ):
         """Train Manager for SingleTask
 
@@ -36,7 +33,6 @@ class SingleTaskTrainManager:
             lr: learning rate
             epochs: epochs
             patience: patience
-            wandb_log: whether to log to wandb
         """
         self.model = model
         self.device = next(self.model.parameters()).device
@@ -48,7 +44,6 @@ class SingleTaskTrainManager:
         self.task_name = task_name
         self.epochs = epochs
         self.patience = patience
-        self.wandb_log = wandb_log
         self.best_weight = None
 
     def train(self):
@@ -77,13 +72,6 @@ class SingleTaskTrainManager:
 
             epoch_loss /= len(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            if self.wandb_log:
-                wandb.log(
-                    {
-                        "Loss": epoch_loss,
-                        f"AUC-Val-{self.task_name}": auc_val,
-                    }
-                )
             print(
                 "Epoch:{}, Loss:{}, AUC-Val-{}:{:.4f}".format(
                     epoch,
@@ -156,7 +144,6 @@ class MultiTaskTrainManager:
         lr: float,
         epochs: int,
         patience: int,
-        wandb_log: bool = False,
     ):
         """Train Manager for SharedBottom, MMOE, PLE, STEM
 
@@ -168,7 +155,6 @@ class MultiTaskTrainManager:
             lr: learning rate
             epochs: epochs
             patience: patience
-            wandb_log: whether to log to wandb
         """
         self.model = model
         self.device = next(self.model.parameters()).device
@@ -179,7 +165,6 @@ class MultiTaskTrainManager:
         self.task_name = task_name
         self.epochs = epochs
         self.patience = patience
-        self.wandb_log = wandb_log
         self.best_weight = None
 
     def _train_a_batch(self, y: List[torch.Tensor], features: Dict[str, torch.Tensor]):
@@ -217,14 +202,6 @@ class MultiTaskTrainManager:
 
             epoch_loss /= len(self.train_loader)
             auc_val = self.evaluation(self.val_loader)
-            if self.wandb_log:
-                wandb.log(
-                    {
-                        "Loss": epoch_loss,
-                        f"AUC-Val-{self.task_name[0]}": auc_val[0],
-                        f"AUC-Val-{self.task_name[1]}": auc_val[1],
-                    }
-                )
             print(
                 "Epoch:{}, Loss:{}, AUC-Val-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
                     epoch,
@@ -303,7 +280,6 @@ class SparseSharingTrainManager(MultiTaskTrainManager):
         lr: float,
         epochs: int,
         patience: int,
-        wandb_log: bool = False,
     ):
         """Train Manager for SparseSharing
 
@@ -316,10 +292,9 @@ class SparseSharingTrainManager(MultiTaskTrainManager):
             lr: learning rate
             epochs: epochs
             patience: patience
-            wandb_log: whether to log to wandb
         """
         super().__init__(
-            model, train_loader, val_loader, task_name, lr, epochs, patience, wandb_log
+            model, train_loader, val_loader, task_name, lr, epochs, patience
         )
         self.all_mask = torch.load(mask_path)
 
@@ -416,7 +391,6 @@ class CSRecTrainManager(SparseSharingTrainManager):
         lr: float,
         epochs: int,
         patience: int,
-        wandb_log: bool = False,
     ):
         """Train Manager for CSRec
 
@@ -429,7 +403,6 @@ class CSRecTrainManager(SparseSharingTrainManager):
             lr: learning rate
             epochs: epochs
             patience: patience
-            wandb_log: whether to log to wandb
         """
         super().__init__(
             model,
@@ -440,7 +413,6 @@ class CSRecTrainManager(SparseSharingTrainManager):
             lr,
             epochs,
             patience,
-            wandb_log,
         )
         shared_mask = {}
         for name in self.all_mask[0]:
@@ -523,7 +495,6 @@ class MPTRecTrainManager(MultiTaskTrainManager):
         gen_coe: float,
         env_coe: float,
         clustering_interval: int,
-        wandb_log: bool = False,
     ):
         """Train Manager for MPTRec
 
@@ -540,10 +511,9 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             gen_coe: coefficient of generalization loss
             env_coe: coefficient of environment loss
             clustering_interval: clustering interval
-            wandb_log: whether to log to wandb
         """
         super().__init__(
-            model, train_loader, val_loader, task_name, lr, epochs, patience, wandb_log
+            model, train_loader, val_loader, task_name, lr, epochs, patience
         )
         self.env_ids = env_ids
         self.env_loss_func = nn.NLLLoss()
@@ -616,16 +586,6 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             fused_loss_1_avg = fused_loss_1_sum / len(self.train_loader)
             env_loss_avg = env_loss_sum / len(self.train_loader)
 
-            if self.wandb_log:
-                wandb.log(
-                    {
-                        "gen_loss_0": gen_loss_0_avg,
-                        "gen_loss_1": gen_loss_1_avg,
-                        "fused_loss_0": fused_loss_0_avg,
-                        "fused_loss_1": fused_loss_1_avg,
-                        "env_loss": env_loss_avg,
-                    }
-                )
             print(
                 "gen_loss_0:{:.4f}, gen_loss_1:{:.4f}, fuse_loss_0:{:.4f}, fuse_loss_1:{:.4f}, env_loss:{:.4f}".format(
                     gen_loss_0_avg,
