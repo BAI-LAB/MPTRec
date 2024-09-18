@@ -792,9 +792,12 @@ class MPTRec(nn.Module):
 
         gate_outs = []
         for gate in self.gate_networks:
-            gate_outs.append(gate(dnn_input))
+            # gate_outs.append(gate(dnn_input))
+            gate_out = torch.full_like(gate(dnn_input), 0.5).to(dnn_input.device)
+            gate_outs.append(gate_out)
 
         fused_preds = []
+        spec_preds = []
         for i in range(self.num_tasks):
             spec_rep = self.specific_networks[i](dnn_input)
             # TODO: 找到正确的设备
@@ -804,8 +807,11 @@ class MPTRec(nn.Module):
             env_aware_rep = spec_rep * env_embedding
             all_reps = torch.stack([env_aware_rep, gen_rep], dim=2)
             fused_rep = torch.matmul(all_reps, gate_outs[i].unsqueeze(dim=2)).squeeze()
+            
             output = self.tower_networks[i](fused_rep)
             fused_preds.append(output.squeeze())
+            output1 = self.tower_networks[i](env_aware_rep)
+            spec_preds.append(output1.squeeze())
 
         rev_gen_rep = ReverseLayerF.apply(gen_rep, alpha)
         env_pred = self.env_classifier(rev_gen_rep)
@@ -813,15 +819,23 @@ class MPTRec(nn.Module):
         return {
             "gen_preds": gen_preds,
             "fused_preds": fused_preds,
+            "spec_preds": spec_preds,
             "env_pred": env_pred,
         }
 
-    def predict(self, x):
+    def predict(self, x, way):
         output = self.forward(x)
-        return output["fused_preds"]
+        if way == 'all':
+            return output["fused_preds"]
+        elif way == 'share':
+            return output["gen_preds"]
+        elif way == 'gan':
+            return output['fused_preds']
+        elif way == 'spec':
+            return output['spec_preds']
 
-    def cluster_predict(self, x):
-        return self.predict(x)
+    def cluster_predict(self, x, way):
+        return self.predict(x, way)
 
     def get_l2_reg(self):
         loss_embedding = self.embedding_networks.get_l2_reg()

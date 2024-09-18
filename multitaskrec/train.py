@@ -528,11 +528,12 @@ class MPTRecTrainManager(MultiTaskTrainManager):
         self.fused_loss_1_list = []
         self.env_loss_list = []
 
-    def train(self):
+    def train(self, way):
         earlystop_count = 0
         best_auc_score = 0
 
         for epoch in range(1, self.epochs + 1):
+            torch.cuda.empty_cache()
             self.model.train()
             gen_loss_0_sum = 0
             gen_loss_1_sum = 0
@@ -555,20 +556,27 @@ class MPTRecTrainManager(MultiTaskTrainManager):
                 ]
                 gen_loss_0 = self.loss_func(output["gen_preds"][0].cpu(), y_0.float())
                 gen_loss_1 = self.loss_func(output["gen_preds"][1].cpu(), y_1.float())
-                fused_loss_0 = self.loss_func(
-                    output["fused_preds"][0].cpu(), y_0.float()
-                )
-                fused_loss_1 = self.loss_func(
-                    output["fused_preds"][1].cpu(), y_1.float()
-                )
+                # spec_loss_0 = self.loss_func(output["spec_preds"][0].cpu(), y_0.float())
+                # spec_loss_1 = self.loss_func(output["spec_preds"][1].cpu(), y_1.float())
+                fused_loss_0 = self.loss_func(output["fused_preds"][0].cpu(), y_0.float())
+                fused_loss_1 = self.loss_func(output["fused_preds"][1].cpu(), y_1.float())
                 env_loss = self.env_loss_func(output["env_pred"].cpu(), batch_env_ids)
-                loss = (
-                    fused_loss_0
-                    + fused_loss_1
-                    + self.gen_coe * (gen_loss_0 + gen_loss_1)
-                    + self.env_coe * env_loss
-                    + self.model.get_l2_reg()
-                )
+                
+                if way == 'gan':
+                    # 去掉 GAN
+                    env_loss = env_loss.detach()
+                    loss = (
+                        fused_loss_0 + fused_loss_1 + 
+                        gen_loss_0 + gen_loss_1 + 
+                        self.model.get_l2_reg()
+                    )
+                else:
+                    loss = (
+                        fused_loss_0 + fused_loss_1
+                        + self.gen_coe * (gen_loss_0 + gen_loss_1)
+                        + self.env_coe * env_loss
+                        + self.model.get_l2_reg()
+                    )
 
                 gen_loss_0_sum += gen_loss_0
                 gen_loss_1_sum += gen_loss_1
@@ -603,10 +611,10 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             self.env_loss_list.append(env_loss_avg.item())
 
             if epoch % self.clustering_interval == 0:
-                self.env_ids = self.cluster()
+                self.env_ids = self.cluster(way)
 
-            auc_train = self.evaluation(self.train_loader)
-            auc_val = self.evaluation(self.val_loader)
+            auc_train = self.evaluation(self.train_loader, way=way)
+            auc_val = self.evaluation(self.val_loader, way=way)
             print("Epoch:{}, AUC-Train-{}:{:.4f}, AUC-Val-{}:{:.4f}".format(
                 epoch,
                 self.task_name[0],
@@ -633,7 +641,7 @@ class MPTRecTrainManager(MultiTaskTrainManager):
                     break
 
     @torch.no_grad()
-    def cluster(self):
+    def cluster(self, way):
         self.model.eval()
         loss_func = nn.BCELoss(reduction="none")
         new_env_list = []
@@ -641,7 +649,7 @@ class MPTRecTrainManager(MultiTaskTrainManager):
         for y_0, y_1, features in self.train_loader:
             for key in features.keys():
                 features[key] = features[key].to(self.device)
-            pred = self.model.cluster_predict(features)
+            pred = self.model.cluster_predict(features, way)
             loss_0 = loss_func(pred[0].cpu(), y_0.float())
             loss_1 = loss_func(pred[1].cpu(), y_1.float())
             loss = torch.stack([loss_0, loss_1], dim=1)
@@ -659,7 +667,7 @@ class MPTRecTrainManager(MultiTaskTrainManager):
         return all_new_env
 
     @torch.no_grad()
-    def evaluation(self, data_loader: DataLoader):
+    def evaluation(self, data_loader: DataLoader, way):
         self.model.eval()
         y_true = [[] for _ in range(2)]
         y_hat = [[] for _ in range(2)]
@@ -668,7 +676,7 @@ class MPTRecTrainManager(MultiTaskTrainManager):
             y = [y_0, y_1]
             for key in features.keys():
                 features[key] = features[key].to(self.device)
-            pred = self.model.predict(features)
+            pred = self.model.predict(features, way)
             for i in range(2):
                 y_true[i].append(y[i])
                 y_hat[i].append(pred[i])

@@ -50,7 +50,7 @@ def main(args):
         task_name=['CTR', 'CVR'],
         lr=1e-4,
         batch_size=2000,
-        epochs=10,
+        epochs=3,
         patience=3,
         gen_coe=0.9,
         env_coe=0.1,
@@ -61,23 +61,30 @@ def main(args):
     train_manager.compute_cost()
 
     # training
-    train_manager.train()
+    train_manager.train(way=args.way)
 
     # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation_two_task(test_loader)
+    auc_test = train_manager.evaluation(test_loader, way=args.way)
+    print(args.way)
     print(
         "AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}".format(
             auc_test[0], auc_test[1]
         )
     )
+    with open(f"AliCCP_FW_{args.way}.txt", "a+") as f:
+        f.write(f"{args.seed}, ")
+        f.write("AUC-Test:{:.4f}, {:.4f}\n".format(auc_test[0], auc_test[1]))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--seed", type=int, default=100)
-    parser.add_argument("--gpu", type=int, default=2)
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--way", type=str, default="all")
     args = parser.parse_args()
 
-    main(args)
+    for seed in [1000, 2000, 3000, 4000, 5000]:
+        args.seed = seed
+        main(args)
