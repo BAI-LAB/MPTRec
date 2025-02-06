@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from config import AliCCP_Vocabulary_Size
 from multitaskrec.dataset import AliCCPDataset
-from multitaskrec.model import MMOE
+from multitaskrec.model import PLE
 from multitaskrec.train import MultiTaskTrainManager
 
 

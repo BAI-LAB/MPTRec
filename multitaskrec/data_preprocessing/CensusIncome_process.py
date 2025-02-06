@@ -121,3 +121,4 @@ if __name__ == "__main__":
         data_path="dataset/Census-income/census-income.test",
         write_path="dataset/Census-income/test.gz",
     )
+    print("CensusIncome data processing finished!")

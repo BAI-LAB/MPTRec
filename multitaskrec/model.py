@@ -792,9 +792,10 @@ class MPTRec(nn.Module):
 
         gate_outs = []
         for gate in self.gate_networks:
-            # gate_outs.append(gate(dnn_input))
-            gate_out = torch.full_like(gate(dnn_input), 0.5).to(dnn_input.device)
-            gate_outs.append(gate_out)
+            gate_outs.append(gate(dnn_input))
+            # Fixed gated network weights
+            # gate_out = torch.full_like(gate(dnn_input), 0.5).to(dnn_input.device)
+            # gate_outs.append(gate_out)
 
         fused_preds = []
         spec_preds = []

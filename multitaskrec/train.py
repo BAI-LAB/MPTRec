@@ -245,7 +245,7 @@ class MultiTaskTrainManager:
             pred = torch.cat(y_hat[i])
             auc_score.append(roc_auc_score(y.int(), pred.cpu()))
 
-        return auc_scor
+        return auc_score
 
     def count_params(self):
         trainable_params_num, total_params_num = 0, 0

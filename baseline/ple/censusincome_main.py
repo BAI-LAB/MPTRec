@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from config import CensusIncome_Vocabulary_Size
 from multitaskrec.dataset import CensusIncomeDataset
-from multitaskrec.model import MMOE
+from multitaskrec.model import PLE
 from multitaskrec.train import MultiTaskTrainManager
 
 

@@ -66,15 +66,11 @@ def main(args):
     # testing
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation(test_loader, way=args.way)
-    print(args.way)
     print(
         "AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}".format(
             auc_test[0], auc_test[1]
         )
     )
-    with open(f"AliCCP_FW_{args.way}.txt", "a+") as f:
-        f.write(f"{args.seed}, ")
-        f.write("AUC-Test:{:.4f}, {:.4f}\n".format(auc_test[0], auc_test[1]))
 
 
 if __name__ == '__main__':
@@ -85,6 +81,4 @@ if __name__ == '__main__':
     parser.add_argument("--way", type=str, default="all")
     args = parser.parse_args()
 
-    for seed in [1000, 2000, 3000, 4000, 5000]:
-        args.seed = seed
-        main(args)
+    main(args)

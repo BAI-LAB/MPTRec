@@ -60,11 +60,11 @@ def main(args):
     train_manager.compute_cost()
 
     # training
-    train_manager.train()
+    train_manager.train(way=args.way)
 
     # testing
     model.load_state_dict(train_manager.best_weight)
-    auc_test = train_manager.evaluation_two_task(test_loader)
+    auc_test = train_manager.evaluation(test_loader, way=args.way)
     print(
         "AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}".format(
             auc_test[0], auc_test[1]
@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--gpu", type=int, default=1)
+    parser.add_argument("--way", type=str, default="all")
     args = parser.parse_args()
 
     main(args)
