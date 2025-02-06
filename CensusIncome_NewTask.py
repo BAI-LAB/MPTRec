@@ -84,7 +84,7 @@ def main(args):
         batch_size=256,
         uni_coe=args.uni_coe,
         env_coe=args.env_coe,
-        epochs=1,
+        epochs=10,
     )
     train_manager.train_two_task()
     mptrec.load_state_dict(train_manager.best_weight)
@@ -92,7 +92,7 @@ def main(args):
     print("-" * 32, "New task generalization phase", "-" * 32)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=1e-3)
     loss_func = nn.BCELoss()
-    epochs = 3
+    epochs = 30
     patience = 5
     earlystop_count = 0
     best_auc_score = 0
