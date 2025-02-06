@@ -4,3 +4,4 @@ pandas==2.2.3
 scikit-learn==1.6.1
 tqdm==4.67.1
 fvcore==0.1.5.post20221221
+matplotlib==3.10.0
