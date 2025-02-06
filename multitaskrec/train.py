@@ -405,8 +405,8 @@ class MPTRecTrainManager(TrainManager):
                 batch_env_ids = self.env_ids[
                     self.batch_size * step : self.batch_size * (step + 1)
                 ]
-                uni_loss_0 = self.loss_func(output["uni_preds"][0].cpu(), y_0.float())
-                uni_loss_1 = self.loss_func(output["uni_preds"][1].cpu(), y_1.float())
+                uni_loss_0 = self.loss_func(output["gen_preds"][0].cpu(), y_0.float())
+                uni_loss_1 = self.loss_func(output["gen_preds"][1].cpu(), y_1.float())
                 fused_loss_0 = self.loss_func(
                     output["fused_preds"][0].cpu(), y_0.float()
                 )
@@ -493,9 +493,9 @@ class MPTRecTrainManager(TrainManager):
                 batch_env_ids = self.env_ids[
                     self.batch_size * step : self.batch_size * (step + 1)
                 ]
-                uni_loss_0 = self.loss_func(output["uni_preds"][0].cpu(), y_0.float())
-                uni_loss_1 = self.loss_func(output["uni_preds"][1].cpu(), y_1.float())
-                uni_loss_2 = self.loss_func(output["uni_preds"][2].cpu(), y_2.float())
+                uni_loss_0 = self.loss_func(output["gen_preds"][0].cpu(), y_0.float())
+                uni_loss_1 = self.loss_func(output["gen_preds"][1].cpu(), y_1.float())
+                uni_loss_2 = self.loss_func(output["gen_preds"][2].cpu(), y_2.float())
                 fused_loss_0 = self.loss_func(
                     output["fused_preds"][0].cpu(), y_0.float()
                 )

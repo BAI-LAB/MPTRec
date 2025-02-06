@@ -5,10 +5,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from utils.config import AliCCP_Vocabulary_Size
-from utils.dataset import AliCCPDataset
-from utils.models import MPTRec
-from utils.train import MPTRecTrainManager
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import MPTRec
+from multitaskrec.train import MPTRecTrainManager
 
 warnings.filterwarnings('ignore')
 

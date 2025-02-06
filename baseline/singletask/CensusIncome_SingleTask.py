@@ -5,12 +5,12 @@ import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import SingleTask
-from utils.train import TrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from multitaskrec.model import SingleTask
+from multitaskrec.train import TrainManager
+from multitaskrec.dataset import CensusIncomeDataset
+from config import CensusIncome_Vocabulary_Size
 
 warnings.filterwarnings('ignore')
 
@@ -21,8 +21,8 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/test.gz')
+    train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
+    test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)

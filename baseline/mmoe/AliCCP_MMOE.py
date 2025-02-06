@@ -6,12 +6,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/huangle/MultiTask/')
-
-from utils.config import AliCCP_Vocabulary_Size
-from utils.dataset import AliCCPDataset
-from utils.models import MMOE
-from utils.train import TrainManager
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import MMOE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 

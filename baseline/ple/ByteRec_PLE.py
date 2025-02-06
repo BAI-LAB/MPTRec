@@ -1,15 +1,16 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import PLE
-from utils.train import TrainManager
-from utils.dataset import ByteRecDataset
-from utils.config import ByteRec_Vocabulary_Size
+from config import ByteRec_Vocabulary_Size
+from multitaskrec.dataset import ByteRecDataset
+from multitaskrec.model import PLE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -20,9 +21,9 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = ByteRecDataset('/home/hl/MultiTask/data/ByteRec/train.gz')
-    val_dataset = ByteRecDataset('/home/hl/MultiTask/data/ByteRec/val.gz')
-    test_dataset = ByteRecDataset('/home/hl/MultiTask/data/ByteRec/test.gz')
+    train_dataset = ByteRecDataset('data/ByteRec/train.gz')
+    val_dataset = ByteRecDataset('data/ByteRec/val.gz')
+    test_dataset = ByteRecDataset('data/ByteRec/test.gz')
     train_loader = DataLoader(train_dataset, batch_size=4000)
     val_loader = DataLoader(val_dataset, batch_size=4000)
     test_loader = DataLoader(test_dataset, batch_size=4000)
@@ -58,7 +59,7 @@ def main():
     train_manager.train_multi_task(task_num)
 
     model.load_state_dict(train_manager.best_weight)
-    torch.save(train_manager.best_weight, f'/home/hl/MultiTask/baseline/ple/ByteRec_{seed}.pt')
+    torch.save(train_manager.best_weight, f'baseline/ple/ByteRec_{seed}.pt')
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
     if task_num == 2:
         print('AUC-Test-Finish:{:.4f}, AUC-Test-Like:{:.4f}'.format(auc_test[0], auc_test[1]))

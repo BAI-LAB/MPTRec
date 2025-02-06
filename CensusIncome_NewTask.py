@@ -22,8 +22,8 @@ def evaluation(newtask, invchar, data_loader):
     for _, _, y, features in data_loader:
         for key in features.keys():
             features[key] = features[key].to(device)
-        output = invchar.get_infos(features)
-        pred = newtask(**output)
+        dnn_input, gen_rep, spec_reps, env_embs = invchar.get_infos(features)
+        pred = newtask(dnn_input, gen_rep, spec_reps, env_embs)
         y_true.append(y)
         y_hat.append(pred)
     y_true = torch.cat(y_true)
@@ -84,7 +84,7 @@ def main(args):
         batch_size=256,
         uni_coe=args.uni_coe,
         env_coe=args.env_coe,
-        epochs=10,
+        epochs=1,
     )
     train_manager.train_two_task()
     mptrec.load_state_dict(train_manager.best_weight)
@@ -92,7 +92,7 @@ def main(args):
     print("-" * 32, "New task generalization phase", "-" * 32)
     optimizer = torch.optim.Adam(params=newtask.parameters(), lr=1e-3)
     loss_func = nn.BCELoss()
-    epochs = 30
+    epochs = 3
     patience = 5
     earlystop_count = 0
     best_auc_score = 0
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_coe", type=float, default=0)
     parser.add_argument("--reg_embedding", type=float, default=0.006)
     parser.add_argument("--reg_dnn", type=float, default=3e-5)
-    parser.add_argument("--gpu", type=int, default=1)
+    parser.add_argument("--gpu", type=int, default=0)
     # 1685480945, 1685463909, 1685477428
     parser.add_argument("--seed", type=int, default=1685480945)
 

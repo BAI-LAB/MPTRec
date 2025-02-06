@@ -1,21 +1,23 @@
-import sys
 import copy
-import torch
+import sys
 import warnings
+
 import numpy as np
-from tqdm import tqdm
-from torch import nn
-from torch.utils.data import DataLoader
+import torch
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
 from utils.functions import count_prune_rate
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import SharedBottom
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -26,8 +28,8 @@ def train_single():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('data/CensusIncome/#train.gz')
+    test_dataset = CensusIncomeDataset('data/CensusIncome/#test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -134,7 +136,7 @@ def train_single():
             if prune_rate > 0.4 and best_auc_score > best_prune:
                 best_prune = best_auc_score
                 print('prune_time:{}'.format(_ite))
-                torch.save(cur_mask, f'/home/hl/MultiTask/baseline/csrec/CensusIncome/three_task/mask_{seed}_{task_id}.pt')
+                torch.save(cur_mask, f'baseline/csrec/CensusIncome/three_task/mask_{seed}_{task_id}.pt')
 
 
 @torch.no_grad()

@@ -1,8 +1,9 @@
+from typing import Dict, List, Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Function
-from typing import Dict, List, Optional
 
 
 class MLP(nn.Module):
@@ -27,7 +28,7 @@ class MLP(nn.Module):
             "linear" + str(layer_num - 1), nn.Linear(hidden_units[-2], hidden_units[-1])
         )
         if output_activation == "softmax":
-            self.mlp.add_module("softmax" + str(layer_num - 1), nn.Softmax())
+            self.mlp.add_module("softmax" + str(layer_num - 1), nn.Softmax(dim=-1))
         elif output_activation == "sigmoid":
             self.mlp.add_module("sigmoid" + str(layer_num - 1), nn.Sigmoid())
         else:
@@ -227,7 +228,7 @@ class MMOE(nn.Module):
             )
             self.gate_networks.append(
                 nn.Sequential(
-                    nn.Linear(input_size, num_experts, bias=False), nn.Softmax()
+                    nn.Linear(input_size, num_experts, bias=False), nn.Softmax(dim=-1)
                 )
             )
 
@@ -811,7 +812,7 @@ class MPTRec(nn.Module):
                 MLP(expert_dnn_hidden_units, input_size, "relu", dropout)
             )
             self.gate_networks.append(
-                nn.Sequential(nn.Linear(input_size, 2, bias=False), nn.Softmax())
+                nn.Sequential(nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1))
             )
             self.tower_networks.append(
                 MLP(
@@ -865,17 +866,12 @@ class MPTRec(nn.Module):
         dnn_input = self.embedding_network(x)
         gen_rep = self.shared_expert_network(dnn_input)
 
-        spec_reps, env_embs = []
+        spec_reps, env_embs = [], []
         for i in range(self.num_tasks):
             spec_reps.append(self.specific_expert_networks[i](dnn_input))
             env_embs.append(self.env_embedding_network(torch.tensor(i).to(self.device)))
 
-        return {
-            "dnn_input": dnn_input,
-            "gen_rep": gen_rep,
-            "spec_reps": spec_reps,
-            "env_embs": env_embs,
-        }
+        return dnn_input, gen_rep, spec_reps, env_embs
 
     def get_l2_reg(self):
         loss_embedding = self.embedding_network.get_l2_reg()
@@ -903,11 +899,11 @@ class NewTask(nn.Module):
             nn.LayerNorm(rep_dim),
         )
         self.gate_network = nn.Sequential(
-            nn.Linear(input_size, 2, bias=False), nn.Softmax()
+            nn.Linear(input_size, 2, bias=False), nn.Softmax(dim=-1)
         )
-        self.gate_network_2 = nn.Sequential(
-            nn.Linear(input_size, 2, bias=False), nn.Softmax()
-        )
+        # self.gate_network_2 = nn.Sequential(
+        #     nn.Linear(input_size, 2, bias=False), nn.Softmax()
+        # )
         self.tower_network = MLP(
             list(tower_dnn_hidden_units) + [1],
             input_size=rep_dim,
@@ -915,11 +911,11 @@ class NewTask(nn.Module):
         )
 
     def forward(self, dnn_input, gen_rep, spec_reps, env_embs):
-        exist_env_embs = torch.cat(env_embs)
+        exist_env_embs = torch.stack(env_embs, dim=1)
         new_env_emb = self.env_embedding_network(torch.tensor(0).to(self.device))
 
         H_out = self.projection_network(dnn_input)
-        W = torch.mm(H_out, exist_env_embs.T) / self.temperature
+        W = torch.mm(H_out, exist_env_embs) / self.temperature
         W = F.softmax(W, dim=-1).unsqueeze(2)
 
         gate_out = self.gate_network(dnn_input).unsqueeze(dim=2)

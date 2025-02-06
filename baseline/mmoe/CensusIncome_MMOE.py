@@ -7,12 +7,10 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/huangle/MultiTask/')
-
-from utils.config import CensusIncome_Vocabulary_Size
-from utils.dataset import CensusIncomeDataset
-from utils.models import MMOE
-from utils.train import TrainManager
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import MMOE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -23,8 +21,8 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/huangle/MultiTask/dataset/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('/home/huangle/MultiTask/dataset/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('../dataset/CensusIncome/#train.gz')
+    test_dataset = CensusIncomeDataset('../dataset/CensusIncome/#test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)

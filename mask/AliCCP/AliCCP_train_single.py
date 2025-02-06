@@ -11,11 +11,12 @@ from tqdm import tqdm
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.config import AliCCP_Vocabulary_Size
-from utils.dataset import AliCCPDataset
 from utils.functions import count_prune_rate
-from utils.models import SharedBottom
-from utils.train import TrainManager
+
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import SharedBottom
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 

@@ -1,21 +1,23 @@
-import sys
 import copy
-import torch
+import sys
 import warnings
+
 import numpy as np
-from tqdm import tqdm
-from torch import nn
-from torch.utils.data import DataLoader
+import torch
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
 from utils.functions import count_prune_rate
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import SharedBottom
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 

@@ -1,16 +1,17 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
-from torch.utils.data import DataLoader
+import torch
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import PLE
-from utils.train import TrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import PLE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -21,8 +22,8 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/test.gz')
+    train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
+    test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -60,7 +61,7 @@ def main():
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
     if task_num == 2:
-        # torch.save(train_manager.best_weight, f'/home/hl/MultiTask/baseline/ple/CensusIncome_{seed}.pt')
+        # torch.save(train_manager.best_weight, f'baseline/ple/CensusIncome_{seed}.pt')
         print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}'.format(auc_test[0], auc_test[1]))
     else:
         print('AUC-Test-Income:{:.4f}, AUC-Test-Marital:{:.4f}, AUC-Test-Sex:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))

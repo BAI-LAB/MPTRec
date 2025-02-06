@@ -6,10 +6,10 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from utils.config import CensusIncome_Vocabulary_Size
-from utils.dataset import CensusIncomeDataset
-from utils.models import MPTRec
-from utils.train import MPTRecTrainManager
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import MPTRec
+from multitaskrec.train import MPTRecTrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -20,10 +20,11 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/huangle/MultiTask/dataset/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('/home/huangle/MultiTask/dataset/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('dataset/Census-income/train.gz')
+    test_dataset = CensusIncomeDataset('dataset/Census-income/test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
-    env_ids = torch.load('/home/huangle/MultiTask/dataset/CensusIncome/#env_id.gz')
+    # env_ids = torch.load('dataset/CensusIncome/#env_id.gz')
+    env_ids = torch.randint(0, 2, size=(len(train_dataset),))
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
     test_loader = DataLoader(test_dataset, batch_size=256)
@@ -41,8 +42,8 @@ def main():
         device=device
     )
     mptrec.to(device)
-    mptrec.base_network.load_state_dict(torch.load('/home/huangle/MultiTask/ci_base.pt'))
-    mptrec.embedding_networks.load_state_dict(torch.load('/home/huangle/MultiTask/ci_embedding.pt'))
+    # mptrec.base_network.load_state_dict(torch.load('ci_base.pt'))
+    # mptrec.embedding_networks.load_state_dict(torch.load('ci_embedding.pt'))
 
     train_manager = MPTRecTrainManager(
         model=mptrec,

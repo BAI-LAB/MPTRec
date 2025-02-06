@@ -1,15 +1,18 @@
 #%%
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader
 from sklearn import manifold
+from torch.utils.data import DataLoader
+
 sys.path.append('/home/hl/MultiTask')
-from utils.models import PLE, MPTRec
-from utils.dataset import AliCCPDataset
-from utils.config import AliCCP_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import PLE, MPTRec
+
 warnings.filterwarnings('ignore')
 
 seed = 1688723740
@@ -18,13 +21,13 @@ torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 
-train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.train', 1000000)
-val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 100000)
-test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.test', 1000000)
+train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 1000000)
+val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 100000)
+test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 1000000)
 train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
-env_ids = torch.load('/home/hl/MultiTask/data/AliCCP/env_id.gz')[:len(train_dataset)]
+env_ids = torch.load('data/AliCCP/env_id.gz')[:len(train_dataset)]
 device = torch.device("cuda:7")
 
 # %% 选择模型MPTRec
@@ -44,7 +47,7 @@ model = MPTRec(
     reg_dnn=reg_dnn,
     device=device
 )
-# model.load_state_dict(torch.load(f'/home/hl/MultiTask/AliCCP_{seed}.pt'))
+# model.load_state_dict(torch.load(f'AliCCP_{seed}.pt'))
 model.to(device)
 
 # %% 选择模型PLE
@@ -62,10 +65,11 @@ model = PLE(
     reg_dnn=1e-6,
     dropout=(0.1, 0.3),
 )
-model.load_state_dict(torch.load(f'/home/hl/MultiTask/baseline/ple/AliCCP_{seed}.pt'))
+model.load_state_dict(torch.load(f'baseline/ple/AliCCP_{seed}.pt'))
 model.to(device)
 
-from utils.train import TrainManager
+from multitaskrec.train import TrainManager
+
 train_manager = TrainManager(
         model=model,
         train_loader=train_loader,

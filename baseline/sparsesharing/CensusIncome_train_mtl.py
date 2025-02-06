@@ -1,16 +1,17 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
-from torch.utils.data import DataLoader
+import torch
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import SparseSharing
-from utils.dataset import CensusIncomeDataset
-from utils.train import SparseSharingTrainManager
-from utils.config import CensusIncome_Vocabulary_Size
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import SparseSharing
+from multitaskrec.train import SparseSharingTrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -21,8 +22,8 @@ def main():
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('data/CensusIncome/#train.gz')
+    test_dataset = CensusIncomeDataset('data/CensusIncome/#test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -42,7 +43,7 @@ def main():
 
     all_mask = []
     for i in range(3):
-        all_mask.append(torch.load(f'/home/hl/MultiTask/baseline/csrec/CensusIncome/three_task/mask_{seed}_{i}.pt'))
+        all_mask.append(torch.load(f'baseline/csrec/CensusIncome/three_task/mask_{seed}_{i}.pt'))
 
     from utils.functions import compute_cost_1
     compute_cost_1(model, all_mask, train_loader)

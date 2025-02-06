@@ -1,15 +1,16 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import SparseSharing
-from utils.dataset import AliCCPDataset
-from utils.train import CsRecTrainManager
-from utils.config import AliCCP_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import SparseSharing
+from multitaskrec.train import CsRecTrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -34,7 +35,7 @@ def main():
     
     all_mask = []
     for i in range(3):
-        all_mask.append(torch.load(f'/home/hl/MultiTask/baseline/csrec/AliCpp/three_task/mask_{seed}_{i}.pt'))
+        all_mask.append(torch.load(f'baseline/csrec/AliCpp/three_task/mask_{seed}_{i}.pt'))
 
     from fvcore.nn import FlopCountAnalysis
     from utils.functions import count_params
@@ -66,9 +67,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 100000)
+    val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 10000)
+    test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 100000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

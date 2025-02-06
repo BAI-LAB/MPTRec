@@ -1,15 +1,16 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import PLE
-from utils.train import TrainManager
-from utils.dataset import AliCCPDataset
-from utils.config import AliCCP_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import PLE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -53,16 +54,16 @@ def main():
     model.load_state_dict(train_manager.best_weight)
     auc_test = train_manager.evaluation_multi_task(test_loader, task_num)
     if task_num == 2:
-        torch.save(train_manager.best_weight, f'/home/hl/MultiTask/baseline/ple/AliCCP_{seed}.pt')
+        torch.save(train_manager.best_weight, f'baseline/ple/AliCCP_{seed}.pt')
         print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}'.format(auc_test[0], auc_test[1]))
     else:
         print('AUC-Test-CTR:{:.4f}, AUC-Test-CVR:{:.4f}, AUC-Test-BSI:{:.4f}'.format(auc_test[0], auc_test[1], auc_test[2]))
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.train', 1000000)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 100000)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.test', 1000000)
+    train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 1000000)
+    val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 100000)
+    test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 1000000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

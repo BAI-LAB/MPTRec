@@ -1,16 +1,17 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
-from torch.utils.data import DataLoader
+import torch
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import SharedBottom
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -24,8 +25,8 @@ def main():
     reg_embedding = 3e-4
     reg_dnn = 3e-4
 
-    train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#train.gz')
-    test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/#test.gz')
+    train_dataset = CensusIncomeDataset('data/CensusIncome/#train.gz')
+    test_dataset = CensusIncomeDataset('data/CensusIncome/#test.gz')
     val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
     train_loader = DataLoader(train_dataset, batch_size=256)
     val_loader = DataLoader(val_dataset, batch_size=256)
@@ -42,7 +43,7 @@ def main():
         reg_dnn=reg_dnn
     )
 
-    weight = torch.load(f'/home/hl/MultiTask/baseline/sharedbottom/census_income_{seed}.pt')
+    weight = torch.load(f'baseline/sharedbottom/census_income_{seed}.pt')
     param_names = [n for n in weight]
     trainable_params = 0
     for name in param_names:

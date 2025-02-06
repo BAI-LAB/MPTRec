@@ -1,20 +1,21 @@
-import sys
 import copy
-import torch
-import optuna
+import sys
 import warnings
+
 import numpy as np
-from torch import nn
-from torch.utils.data import DataLoader
+import optuna
+import torch
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from torch import nn
+from torch.utils.data import DataLoader
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.models import MPTRec, NewTask
-from utils.train import MPTRecTrainManager
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import MPTRec, NewTask
+from multitaskrec.train import MPTRecTrainManager
 
 warnings.filterwarnings('ignore')
 

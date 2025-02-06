@@ -1,16 +1,19 @@
 #%%
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader
 from sklearn import manifold
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
+
 sys.path.append('/home/hl/MultiTask')
-from utils.models import PLE, MPTRec
-from utils.dataset import CensusIncomeDataset
-from utils.config import CensusIncome_Vocabulary_Size
+from config import CensusIncome_Vocabulary_Size
+from multitaskrec.dataset import CensusIncomeDataset
+from multitaskrec.model import PLE, MPTRec
+
 warnings.filterwarnings('ignore')
 
 seed = 1685480945
@@ -19,10 +22,10 @@ torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 
-train_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/train.gz')
-test_dataset = CensusIncomeDataset('/home/hl/MultiTask/data/CensusIncome/test.gz')
+train_dataset = CensusIncomeDataset('data/CensusIncome/train.gz')
+test_dataset = CensusIncomeDataset('data/CensusIncome/test.gz')
 val_dataset, test_dataset = train_test_split(test_dataset, test_size=0.5, random_state=seed)
-env_ids = torch.load('/home/hl/MultiTask/data/CensusIncome/#env_id.gz')
+env_ids = torch.load('data/CensusIncome/#env_id.gz')
 train_loader = DataLoader(train_dataset, batch_size=2000)
 val_loader = DataLoader(val_dataset, batch_size=2000)
 test_loader = DataLoader(test_dataset, batch_size=2000)
@@ -59,7 +62,7 @@ model.to(device)
 #     reg_embedding=3e-4,
 #     reg_dnn=3e-4
 # )
-# model.load_state_dict(torch.load(f'/home/hl/MultiTask/baseline/ple/CensusIncome_{seed}.pt'))
+# model.load_state_dict(torch.load(f'baseline/ple/CensusIncome_{seed}.pt'))
 # model.to(device)
 
 # %% 得到通用表征和专有表征

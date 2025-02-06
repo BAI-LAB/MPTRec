@@ -1,19 +1,20 @@
-import sys
 import copy
-import torch
-import optuna
+import sys
 import warnings
+
 import numpy as np
+import optuna
+import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.dataset import AliCppDataset
-from utils.models import MPTRec, NewTask
-from utils.train import MPTRecTrainManager
-from utils.config import AliCpp_Vocabulary_Size
+from config import AliCpp_Vocabulary_Size
+from multitaskrec.dataset import AliCppDataset
+from multitaskrec.model import MPTRec, NewTask
+from multitaskrec.train import MPTRecTrainManager
 
 warnings.filterwarnings('ignore')
 

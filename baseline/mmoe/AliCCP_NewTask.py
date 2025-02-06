@@ -1,15 +1,16 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('/home/hl/MultiTask/')
+sys.path.append('')
 
-from utils.models import MMOE 
-from utils.train import TrainManager
-from utils.dataset import AliCCPDataset
-from utils.config import AliCCP_Vocabulary_Size
+from config import AliCCP_Vocabulary_Size
+from multitaskrec.dataset import AliCCPDataset
+from multitaskrec.model import MMOE
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
@@ -35,7 +36,7 @@ def main():
         reg_dnn=reg_dnn,
         dropout=(0.1, 0.3),
     )
-    weight = torch.load(f'/home/hl/MultiTask/baseline/mmoe/alicpp_{seed}.pt')
+    weight = torch.load(f'baseline/mmoe/alicpp_{seed}.pt')
     param_names = [n for n in weight]
     trainable_params = 0
     for name in param_names:
@@ -70,9 +71,9 @@ def main():
 
 
 if __name__ == '__main__':
-    train_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.train', 100000)
-    val_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.dev', 10000)
-    test_dataset = AliCCPDataset('/home/hl/MultiTask/data/AliCCP/ctr_cvr.test', 100000)
+    train_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.train', 100000)
+    val_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.dev', 10000)
+    test_dataset = AliCCPDataset('data/AliCCP/ctr_cvr.test', 100000)
     train_loader = DataLoader(train_dataset, batch_size=2000)
     val_loader = DataLoader(val_dataset, batch_size=2000)
     test_loader = DataLoader(test_dataset, batch_size=2000)

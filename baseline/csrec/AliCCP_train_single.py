@@ -1,19 +1,21 @@
 import sys
-import torch
 import warnings
+
 import numpy as np
-from tqdm import tqdm
+import torch
+from sklearn.metrics import roc_auc_score
 from torch import nn
 from torch.utils.data import DataLoader
-from sklearn.metrics import roc_auc_score
+from tqdm import tqdm
 
 sys.path.append('/data/hl/MultiTask/')
 
-from utils.train import TrainManager
-from utils.models import SharedBottom
-from utils.dataset import AliCppDataset
 from utils.functions import count_prune_rate
-from utils.config import AliCpp_Vocabulary_Size
+
+from config import AliCpp_Vocabulary_Size
+from multitaskrec.dataset import AliCppDataset
+from multitaskrec.model import SharedBottom
+from multitaskrec.train import TrainManager
 
 warnings.filterwarnings('ignore')
 
